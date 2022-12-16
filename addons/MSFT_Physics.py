@@ -335,7 +335,7 @@ class glTF2ExportUserExtension:
                 or node.rigid_body.collision_shape == 'CONVEX_HULL'):
             colliderData['convex'] = {'mesh': glNode.mesh}
         elif node.rigid_body.collision_shape == 'MESH':
-            colliderData['mesh'] = {'mesh': glNode.mesh}
+            colliderData['trimesh'] = {'mesh': glNode.mesh}
         else:
             # If the shape is a geometric primitive, we may have to apply modifiers
             # to see the final geometry. (glNode has already had modifiers applied)
