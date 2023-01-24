@@ -5,23 +5,23 @@ from mathutils import Matrix, Quaternion, Vector
 import sys, traceback
 
 bl_info = {
-    "name": "MSFT_Physics",
-    "category": "Import-Export",
-    "version": (0, 0, 1),
-    "blender": (3, 3, 0),
+    'name': 'MSFT_Physics',
+    'category': 'Import-Export',
+    'version': (0, 0, 1),
+    'blender': (3, 3, 0),
     'location': 'File > Export > glTF 2.0',
     'description': 'Extension for adding rigid body information to exported glTF file',
-    'tracker_url': "https://github.com/eoineoineoin/Blender_glTF_Physics/issues/",
+    'tracker_url': 'https://github.com/eoineoineoin/Blender_glTF_Physics/issues/',
     'isDraft': True,
-    'developer': "Eoin Mcloughlin (Havok)",
+    'developer': 'Eoin Mcloughlin (Havok)',
     'url': 'https://github.com/eoineoineoin/Blender_glTF_Physics',
 }
 
 # glTF extensions are named following a convention with known prefixes.
 # See: https://github.com/KhronosGroup/glTF/tree/master/extensions#about-gltf-extensions
 # also: https://github.com/KhronosGroup/glTF/blob/master/extensions/Prefixes.md
-collisionGeom_Extension_Name = "MSFT_CollisionPrimitives"
-rigidBody_Extension_Name = "MSFT_RigidBodies"
+collisionGeom_Extension_Name = 'MSFT_CollisionPrimitives'
+rigidBody_Extension_Name = 'MSFT_RigidBodies'
 
 # Support for an extension is "required" if a typical glTF viewer cannot be expected
 # to load a given model without understanding the contents of the extension.
@@ -34,7 +34,7 @@ halfSqrt2 = 2 ** 0.5 * 0.5
 
 class MSFTPhysicsExtensionProperties(bpy.types.PropertyGroup):
     enabled: bpy.props.BoolProperty(
-        name=bl_info["name"],
+        name=bl_info['name'],
         description='Include rigid body data in the exported glTF file.',
         default=True)
 
@@ -70,18 +70,17 @@ def unregister():
     del bpy.types.Scene.MSFTPhysicsExtensionProperties
 
 class GLTF_PT_UserExtensionPanel(bpy.types.Panel):
-
     bl_space_type = 'FILE_BROWSER'
     bl_region_type = 'TOOL_PROPS'
-    bl_label = "Enabled"
-    bl_parent_id = "GLTF_PT_export_user_extensions"
+    bl_label = 'Enabled'
+    bl_parent_id = 'GLTF_PT_export_user_extensions'
     bl_options = set()
 
     @classmethod
     def poll(cls, context):
         sfile = context.space_data
         operator = sfile.active_operator
-        return operator.bl_idname == "EXPORT_SCENE_OT_gltf"
+        return operator.bl_idname == 'EXPORT_SCENE_OT_gltf'
 
     def draw_header(self, context):
         props = bpy.context.scene.MSFTPhysicsExtensionProperties
@@ -96,7 +95,6 @@ class GLTF_PT_UserExtensionPanel(bpy.types.Panel):
         layout.active = props.enabled
 
 class glTF2ExportUserExtension:
-
     def __init__(self):
         # We need to wait until we create the gltf2UserExtension to import the gltf2 modules
         # Otherwise, it may fail because the gltf2 may not be loaded yet
@@ -127,8 +125,10 @@ class glTF2ExportUserExtension:
                 extension={'physicsMaterials': self.physicsMaterials},
                 required=extension_is_required)
 
+        #
         # Export and re-index any colliders we generated.
         # We may have to generate the extension data for the collision primitives.
+        #
         if not collisionGeom_Extension_Name in gltf2_plan.extensions:
             cgExtension = self.Extension(
                 name = collisionGeom_Extension_Name,
@@ -142,70 +142,55 @@ class glTF2ExportUserExtension:
         for gltfNode in self.physicsColliders:
             gltfNode.extensions[rigidBody_Extension_Name]['collider'] = len(cgExtension.extension['colliders'])
             cgExtension.extension['colliders'].append(self.physicsColliders[gltfNode])
+        #
+        # Export any joints we've seen. These joints may need additional gltf nodes
+        # created, in order to supply the pivot transform
+        #
+        for joint_node in self.blenderJointObjects:
+            gltf2_object = self.blenderNodeToGltfNode[joint_node]
+            jointData = self._generateJointData(joint_node, gltf2_object, export_settings)
+            # Blender allows a joint to be specified at any point in the scene
+            # tree, and the joint points to bodyA/bodyB while the glTF_Physics
+            # spec expects that the joint is attached to a child node of bodyA
+            # (determining the joint space in bodyA) and points to a child node
+            # of bodyB (defining the joint in bodyB space). Make new nodes to
+            # contain those transforms.
 
-    def gather_scene_hook(self, gltf2_scene, blender_scene, export_settings):
-        if self.properties.enabled:
-            # The scene is gathered after all the nodes are processed, so we can
-            # iterate through any nodes which need joint data and add it.
-            for joint_node in self.blenderJointObjects:
-                gltf2_object = self.blenderNodeToGltfNode[joint_node]
-                jointData = self._generateJointData(joint_node, gltf2_object, export_settings)
-                # Blender allows a joint to be specified at any point in the scene
-                # tree, and the joint points to bodyA/bodyB while the glTF_Physics
-                # spec expects that the joint is attached to a child node of bodyA
-                # (determining the joint space in bodyA) and points to a child node
-                # of bodyB (defining the joint in bodyB space). Make new nodes to
-                # contain those transforms.
+            bodyA = joint_node.rigid_body_constraint.object1
+            aFromWorld = bodyA.matrix_world.copy() if bodyA else Matrix()
+            aFromWorld.invert()
+            bodyB = joint_node.rigid_body_constraint.object2
+            bFromWorld = bodyB.matrix_world.copy() if bodyB else Matrix()
+            bFromWorld.invert()
 
-                bodyA = joint_node.rigid_body_constraint.object1
-                aFromWorld = bodyA.matrix_world.copy() if bodyA else Matrix()
-                aFromWorld.invert()
-                bodyB = joint_node.rigid_body_constraint.object2
-                bFromWorld = bodyB.matrix_world.copy() if bodyB else Matrix()
-                bFromWorld.invert()
+            worldFromJoint = joint_node.matrix_world.copy()
+            jointFromBodyA = aFromWorld @ worldFromJoint
+            jointFromBodyB = bFromWorld @ worldFromJoint
 
-                worldFromJoint = joint_node.matrix_world.copy()
-                jointFromBodyA = aFromWorld @ worldFromJoint
-                jointFromBodyB = bFromWorld @ worldFromJoint
+            # gltf_A/B are the nodes connected to the constraint
+            # jointInA/B are the pivots in the space of their connected node
+            gltf_B = self.blenderNodeToGltfNode[bodyB]
 
-                # gltf_A/B are the nodes connected to the constraint
-                # jointInA/B are the pivots in the space of their connected node
-                gltf_B = self.blenderNodeToGltfNode[bodyB]
+            if export_settings[gltf2_blender_export_keys.YUP]:
+                # If we're exporting with Y up, add an additional rotation so that
+                # Blender's constraint X/Y/Z aligns with what we expect
+                jointSpaceOrientation = Quaternion((halfSqrt2, halfSqrt2, 0, 0))
+            else:
+                jointSpaceOrientation = Quaternion()
 
-                if export_settings[gltf2_blender_export_keys.YUP]:
-                    # If we're exporting with Y up, add an additional rotation so that
-                    # Blender's constraint X/Y/Z aligns with what we expect
-                    jointSpaceOrientation = Quaternion((halfSqrt2, halfSqrt2, 0, 0))
-                else:
-                    jointSpaceOrientation = Quaternion()
+            jointInB = _constructNode('jointSpaceB', jointFromBodyB.to_translation(),
+                    jointFromBodyB.to_quaternion() @ jointSpaceOrientation, export_settings)
+            gltf_B.children.append(jointInB)
+            jointData['connectedNode'] = jointInB
 
-                jointInB = Node(name = "jointSpaceB",
-                        #TODO.eoin This feels real clunky. Maybe holding this wrong?
-                        translation = [x for x in self.__convert_swizzle_location(jointFromBodyB.to_translation(), export_settings)],
-                        rotation = self._serializeQuaternion(jointFromBodyB.to_quaternion() @ jointSpaceOrientation),
-                        matrix = [],
-                        camera=None, children=[], extensions={}, extras=None,
-                        mesh = None, scale = None, skin = None,
-                        weights=None)
-                gltf_B.children.append(jointInB)
-                jointData['connectedNode'] = jointInB
-
-
-                gltf_A = self.blenderNodeToGltfNode[bodyA]
-                jointInA = Node(name = "jointSpaceA",
-                        #TODO.eoin This feels real clunky. Maybe holding this wrong?
-                        translation = [x for x in self.__convert_swizzle_location(jointFromBodyA.to_translation(), export_settings)],
-                        rotation = self._serializeQuaternion(jointFromBodyA.to_quaternion() @ jointSpaceOrientation),
-                        matrix = [],
-                        camera=None, children=[], extensions={}, extras=None,
-                        mesh = None, scale = None, skin = None,
-                        weights=None)
-                jointInA.extensions[rigidBody_Extension_Name] = self.Extension(
-                    name=rigidBody_Extension_Name,
-                    extension={'joint': jointData},
-                    required=extension_is_required)
-                gltf_A.children.append(jointInA)
-
+            gltf_A = self.blenderNodeToGltfNode[bodyA]
+            jointInA = _constructNode('jointSpaceA', jointFromBodyA.to_translation(),
+                    jointFromBodyA.to_quaternion() @ jointSpaceOrientation, export_settings)
+            jointInA.extensions[rigidBody_Extension_Name] = self.Extension(
+                name=rigidBody_Extension_Name,
+                extension={'joint': jointData},
+                required=extension_is_required)
+            gltf_A.children.append(jointInA)
 
     def gather_node_hook(self, gltf2_object, blender_object, export_settings):
         if self.properties.enabled:
@@ -348,7 +333,6 @@ class glTF2ExportUserExtension:
             return None
         colliderData = {}
 
-        #<TODO.eoin Blender docs seem to indicate these should be enums? Not strings?
         if (node.rigid_body.collision_shape == 'CONE'
                 or node.rigid_body.collision_shape == 'CONVEX_HULL'):
             colliderData['convex'] = {'mesh': glNode.mesh}
@@ -393,15 +377,8 @@ class glTF2ExportUserExtension:
 
                     if not export_settings[gltf2_blender_export_keys.YUP]:
                         # Add an additional node to align the object, so the shape is oriented correctly when constructed along +Y
-                        colliderAlignment = Node(name = "physicsAlignmentNode",
-                                #TODO.eoin This feels real clunky. Maybe holding this wrong?
-                                #TODO.eoin Could be calculating a better fitting transform here
-                                translation = None,
-                                rotation = [halfSqrt2, 0.0, 0.0, halfSqrt2],
-                                matrix = None,
-                                camera=None, children=[], extensions={}, extras=None,
-                                mesh = None, scale = None, skin = None,
-                                weights=None)
+                        collider_alignment = _constructNode('physicsAlignmentNode',
+                                Vector((0,0,0)), Quaternion((halfSqrt2, 0, 0, halfSqrt2)), export_settings);
                         colliderAlignment.extensions[rigidBody_Extension_Name] = self.Extension(
                             name=rigidBody_Extension_Name,
                             extension={'collider': self._addCollider(colliderAlignment, colliderData)},
@@ -437,6 +414,13 @@ class glTF2ExportUserExtension:
                 if self.modifiedNode:
                     self.modifiedNode.to_mesh_clear()
         return ScopedMesh(node, export_settings)
+
+    def _constructNode(name, translation, rotation, export_settings):
+        return Node(name = name,
+                translation = [x for x in self.__convert_swizzle_location(translation, export_settings)],
+                rotation = self._serializeQuaternion(rotation),
+                matrix = [], camera = None, children = [], extensions = {}, extras = None, mesh = None,
+                scale = None, skin = None, weights = None)
 
     # Copy-pasted from the glTF exporter; are they accessible some other way, without having to duplicate?
     def __convert_swizzle_location(self, loc, export_settings):
