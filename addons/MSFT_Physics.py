@@ -145,15 +145,6 @@ class glTF2ExportUserExtension:
 
     def gather_scene_hook(self, gltf2_scene, blender_scene, export_settings):
         if self.properties.enabled:
-            if gltf2_scene.extensions is None:
-                gltf2_scene.extensions = {}
-            #TODO.eoin Remove this:
-            gltf2_scene.extensions[rigidBody_Extension_Name] = self.Extension(
-                name=rigidBody_Extension_Name,
-                extension={"gravity": [c for c in self.__convert_swizzle_location(blender_scene.gravity, export_settings)]},
-                required=extension_is_required
-            )
-
             # The scene is gathered after all the nodes are processed, so we can
             # iterate through any nodes which need joint data and add it.
             for joint_node in self.blenderJointObjects:
