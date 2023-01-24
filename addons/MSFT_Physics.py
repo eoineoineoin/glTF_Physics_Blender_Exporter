@@ -20,7 +20,8 @@ bl_info = {
 # glTF extensions are named following a convention with known prefixes.
 # See: https://github.com/KhronosGroup/glTF/tree/master/extensions#about-gltf-extensions
 # also: https://github.com/KhronosGroup/glTF/blob/master/extensions/Prefixes.md
-glTF_extension_name = "MSFT_Physics"
+collisionGeom_Extension_Name = "MSFT_CollisionPrimitives"
+rigidBody_Extension_Name = "MSFT_RigidBodies"
 
 # Support for an extension is "required" if a typical glTF viewer cannot be expected
 # to load a given model without understanding the contents of the extension.
@@ -104,25 +105,51 @@ class glTF2ExportUserExtension:
         self.properties = bpy.context.scene.MSFTPhysicsExtensionProperties
         self.physicsMaterials = []
 
+        # Maps the gltf node to collider data. Since we don't know what other extensions
+        # might produce collider data, we'll potentially need to re-index colliders
+        # we've already generated
+        self.physicsColliders = {}
+
         # Supporting data allowing us to save joints correctly
         self.blenderJointObjects = []
         self.blenderNodeToGltfNode = {}
 
     def gather_gltf_extensions_hook(self, gltf2_plan, export_settings):
-        if self.properties.enabled:
-            if gltf2_plan.extensions is None:
-                gltf2_plan.extensions = {}
-            gltf2_plan.extensions[glTF_extension_name] = self.Extension(
-                name=glTF_extension_name,
+        if not self.properties.enabled:
+            return
+
+        if gltf2_plan.extensions is None:
+            gltf2_plan.extensions = {}
+
+        if len(self.physicsMaterials) > 0:
+            gltf2_plan.extensions[rigidBody_Extension_Name] = self.Extension(
+                name=rigidBody_Extension_Name,
                 extension={'physicsMaterials': self.physicsMaterials},
-                required=extension_is_required
-            )
+                required=extension_is_required)
+
+        # Export and re-index any colliders we generated.
+        # We may have to generate the extension data for the collision primitives.
+        if not collisionGeom_Extension_Name in gltf2_plan.extensions:
+            cgExtension = self.Extension(
+                name = collisionGeom_Extension_Name,
+                extension = {},
+                required = extension_is_required)
+            gltf2_plan.extensions[collisionGeom_Extension_Name] = cgExtension
+
+        if not 'colliders' in cgExtension.extension and len(self.physicsColliders) > 0:
+            cgExtension.extension['colliders'] = []
+
+        for gltfNode in self.physicsColliders:
+            gltfNode.extensions[rigidBody_Extension_Name]['collider'] = len(cgExtension.extension['colliders'])
+            cgExtension.extension['colliders'].append(self.physicsColliders[gltfNode])
+
     def gather_scene_hook(self, gltf2_scene, blender_scene, export_settings):
         if self.properties.enabled:
             if gltf2_scene.extensions is None:
                 gltf2_scene.extensions = {}
-            gltf2_scene.extensions[glTF_extension_name] = self.Extension(
-                name=glTF_extension_name,
+            #TODO.eoin Remove this:
+            gltf2_scene.extensions[rigidBody_Extension_Name] = self.Extension(
+                name=rigidBody_Extension_Name,
                 extension={"gravity": [c for c in self.__convert_swizzle_location(blender_scene.gravity, export_settings)]},
                 required=extension_is_required
             )
@@ -182,8 +209,8 @@ class glTF2ExportUserExtension:
                         camera=None, children=[], extensions={}, extras=None,
                         mesh = None, scale = None, skin = None,
                         weights=None)
-                jointInA.extensions[glTF_extension_name] = self.Extension(
-                    name=glTF_extension_name,
+                jointInA.extensions[rigidBody_Extension_Name] = self.Extension(
+                    name=rigidBody_Extension_Name,
                     extension={'joint': jointData},
                     required=extension_is_required)
                 gltf_A.children.append(jointInA)
@@ -213,15 +240,24 @@ class glTF2ExportUserExtension:
             if blender_object.rigid_body:
                 collider_data = self._generateColliderData(blender_object, gltf2_object, export_settings)
                 if collider_data:
-                    extension_data['collider'] = collider_data
+                    extension_data['collider'] = self._addCollider(gltf2_object, collider_data)
+
+                extension_data['physicsMaterial'] = len(self.physicsMaterials)
+                # Should we attempt to de-duplicate identical materials? This feels a little
+                # bit wasteful, but materials are not shared in Blender, and other tooling
+                # may want to change the material for one collider without affecting others.
+                curMaterial = {'dynamicFriction': blender_object.rigid_body.friction,
+                        'staticFriction': blender_object.rigid_body.friction,
+                        'restitution': blender_object.rigid_body.restitution}
+                self.physicsMaterials.append(curMaterial)
 
             if blender_object.rigid_body_constraint:
                 # Because joints refer to another node in the scene, which may not be processed yet,
                 # We'll just save all the joint objects we see and process them later.
                 self.blenderJointObjects.append(blender_object)
 
-            gltf2_object.extensions[glTF_extension_name] = self.Extension(
-                name=glTF_extension_name,
+            gltf2_object.extensions[rigidBody_Extension_Name] = self.Extension(
+                name=rigidBody_Extension_Name,
                 extension=extension_data,
                 required=extension_is_required
             )
@@ -321,15 +357,6 @@ class glTF2ExportUserExtension:
             return None
         colliderData = {}
 
-        colliderData['physicsMaterial'] = len(self.physicsMaterials)
-        # Should we attempt to de-duplicate identical materials? This feels a little
-        # bit wasteful, but materials are not shared in Blender, and other tooling
-        # may want to change the material for one collider without affecting others.
-        curMaterial = {'dynamicFriction': node.rigid_body.friction,
-                'staticFriction': node.rigid_body.friction,
-                'restitution': node.rigid_body.restitution}
-        self.physicsMaterials.append(curMaterial)
-
         #<TODO.eoin Blender docs seem to indicate these should be enums? Not strings?
         if (node.rigid_body.collision_shape == 'CONE'
                 or node.rigid_body.collision_shape == 'CONVEX_HULL'):
@@ -384,15 +411,20 @@ class glTF2ExportUserExtension:
                                 camera=None, children=[], extensions={}, extras=None,
                                 mesh = None, scale = None, skin = None,
                                 weights=None)
-                        colliderAlignment.extensions[glTF_extension_name] = self.Extension(
-                            name=glTF_extension_name,
-                            extension={'collider': colliderData},
+                        colliderAlignment.extensions[rigidBody_Extension_Name] = self.Extension(
+                            name=rigidBody_Extension_Name,
+                            extension={'collider': self._addCollider(colliderAlignment, colliderData)},
                             required=extension_is_required)
                         glNode.children.append(colliderAlignment)
                         # We've added the collider data to a child of glNode;
                         # return None so that the glNode doesn't get collider data,
                         return None
         return colliderData
+
+    def _addCollider(self, gltfNode, colliderData):
+        self.physicsColliders[gltfNode] = colliderData
+        r =len(self.physicsColliders[gltfNode]) - 1
+        return r
 
     def _accessMeshData(self, node, export_settings):
         """RAII-style function to access mesh data with modifiers attached"""
