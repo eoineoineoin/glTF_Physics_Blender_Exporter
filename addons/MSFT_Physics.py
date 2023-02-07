@@ -142,6 +142,11 @@ class glTF2ExportUserExtension:
         for gltfNode in self.physicsColliders:
             gltfNode.extensions[rigidBody_Extension_Name]['collider'] = len(cgExtension.extension['colliders'])
             cgExtension.extension['colliders'].append(self.physicsColliders[gltfNode])
+
+    def gather_scene_hook(self, gltf2_scene, blender_scene, export_settings):
+        if not self.properties.enabled:
+            return
+
         #
         # Export any joints we've seen. These joints may need additional gltf nodes
         # created, in order to supply the pivot transform
@@ -178,13 +183,13 @@ class glTF2ExportUserExtension:
             else:
                 jointSpaceOrientation = Quaternion()
 
-            jointInB = _constructNode('jointSpaceB', jointFromBodyB.to_translation(),
+            jointInB = self._constructNode('jointSpaceB', jointFromBodyB.to_translation(),
                     jointFromBodyB.to_quaternion() @ jointSpaceOrientation, export_settings)
             gltf_B.children.append(jointInB)
             jointData['connectedNode'] = jointInB
 
             gltf_A = self.blenderNodeToGltfNode[bodyA]
-            jointInA = _constructNode('jointSpaceA', jointFromBodyA.to_translation(),
+            jointInA = self._constructNode('jointSpaceA', jointFromBodyA.to_translation(),
                     jointFromBodyA.to_quaternion() @ jointSpaceOrientation, export_settings)
             jointInA.extensions[rigidBody_Extension_Name] = self.Extension(
                 name=rigidBody_Extension_Name,
@@ -377,7 +382,7 @@ class glTF2ExportUserExtension:
 
                     if not export_settings[gltf2_blender_export_keys.YUP]:
                         # Add an additional node to align the object, so the shape is oriented correctly when constructed along +Y
-                        collider_alignment = _constructNode('physicsAlignmentNode',
+                        collider_alignment = self._constructNode('physicsAlignmentNode',
                                 Vector((0,0,0)), Quaternion((halfSqrt2, 0, 0, halfSqrt2)), export_settings);
                         colliderAlignment.extensions[rigidBody_Extension_Name] = self.Extension(
                             name=rigidBody_Extension_Name,
@@ -415,7 +420,7 @@ class glTF2ExportUserExtension:
                     self.modifiedNode.to_mesh_clear()
         return ScopedMesh(node, export_settings)
 
-    def _constructNode(name, translation, rotation, export_settings):
+    def _constructNode(self, name, translation, rotation, export_settings):
         return Node(name = name,
                 translation = [x for x in self.__convert_swizzle_location(translation, export_settings)],
                 rotation = self._serializeQuaternion(rotation),
