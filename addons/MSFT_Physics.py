@@ -338,6 +338,14 @@ class glTF2ExportUserExtension:
             return None
         colliderData = {}
 
+        # Blender's native collision filtering has less functionality than the spec enables:
+        #    * Children of COMPOUND_PARENT don't have a UI to configure filtering
+        #    * An objects' "membership" is always equal to it's "collides with"
+        #    * Seems there's no "user friendly" names
+        collisionSystems = ["System_%i" % i for (i,enabled) in enumerate(node.rigid_body.collision_collections) if enabled]
+        colliderData['collisionSystems'] = collisionSystems
+        colliderData['collideWithSystems'] = collisionSystems
+
         if (node.rigid_body.collision_shape == 'CONE'
                 or node.rigid_body.collision_shape == 'CONVEX_HULL'):
             colliderData['convex'] = {'mesh': glNode.mesh}
@@ -396,8 +404,7 @@ class glTF2ExportUserExtension:
 
     def _addCollider(self, gltfNode, colliderData):
         self.physicsColliders[gltfNode] = colliderData
-        r =len(self.physicsColliders[gltfNode]) - 1
-        return r
+        return len(self.physicsColliders[gltfNode]) - 1
 
     def _accessMeshData(self, node, export_settings):
         """RAII-style function to access mesh data with modifiers attached"""
