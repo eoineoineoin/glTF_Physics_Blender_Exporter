@@ -1,8 +1,10 @@
 import bpy
+import gpu
 from io_scene_gltf2.blender.exp import gltf2_blender_export_keys
 from io_scene_gltf2.io.com.gltf2_io import Node
+from gpu_extras.batch import batch_for_shader
 from mathutils import Matrix, Quaternion, Vector
-import sys, traceback
+import os, sys, traceback
 
 bl_info = {
     'name': 'MSFT_Physics',
@@ -32,15 +34,131 @@ extension_is_required = False
 # Constant used to construct some quaternions when switching up axis
 halfSqrt2 = 2 ** 0.5 * 0.5
 
-class MSFTPhysicsExtensionProperties(bpy.types.PropertyGroup):
+# Enum values for friction/restitution combine modes
+physics_material_combine_types = [
+    ('AVERAGE', 'Average', '', 0),
+    ('MINIMUM', 'Minimum', '', 1),
+    ('MAXIMUM', 'Maximum', '', 2),
+    ('MULTIPLY', 'Multiply', '', 3)
+]
+
+class MSFTPhysicsSceneAdditionalSettings(bpy.types.PropertyGroup):
+    draw_velocity: bpy.props.BoolProperty(name='Draw Velocities', default=False)
+
+class MSFTPhysicsBodyAdditionalSettings(bpy.types.PropertyGroup):
+    linear_velocity: bpy.props.FloatVectorProperty(name='Linear Velocity', default=(0,0,0))
+    angular_velocity: bpy.props.FloatVectorProperty(name='Angular Velocity', default=(0,0,0))
+
+    enable_inertia_override: bpy.props.BoolProperty(name='Custom Inertia Tensor', default=False)
+    inertia_scaling: bpy.props.FloatVectorProperty(name='Inertia Tensor', default=(1,1,1))
+
+    enable_com_override: bpy.props.BoolProperty(name='Custom Center of Mass', default=False)
+    center_of_mass: bpy.props.FloatVectorProperty(name='Center of Mass', default=(0,0,0))
+
+    friction_combine: bpy.props.EnumProperty(name='Friction Combine mode', items=physics_material_combine_types)
+    restitution_combine: bpy.props.EnumProperty(name='Restitution Combine mode', items=physics_material_combine_types)
+
+class MSFTPhysicsExporterProperties(bpy.types.PropertyGroup):
     enabled: bpy.props.BoolProperty(
         name=bl_info['name'],
         description='Include rigid body data in the exported glTF file.',
         default=True)
 
+
+class MSFTPhysicsSettingsViewportRenderHelper:
+    def __init__(self):
+        self.shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
+
+    def drawExtraPhysicsProperties(self):
+        if not bpy.context.object:
+            return
+        if not bpy.context.object.rigid_body:
+            return
+
+        obj = bpy.context.object
+        if bpy.context.scene.msft_physics_scene_viewer_props.draw_velocity:
+            coords = [(obj.matrix_world @ Vector((0, 0, 0))).to_tuple(),
+                      (obj.matrix_world @ Vector(obj.msft_physics_extra_props.linear_velocity)).to_tuple()]
+            self.batch = batch_for_shader(self.shader, 'LINES', {"pos": coords})
+            self.shader.uniform_float("color", (1, 1, 0, 1))
+            self.batch.draw(self.shader)
+
+viewportRenderHelper = MSFTPhysicsSettingsViewportRenderHelper()
+
+class MSFTPhysicsSettingsViewportPanel(bpy.types.Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'MSFT Physics'
+    bl_label = 'MSFT Physics'
+    bl_idname = "OBJECT_PT_MSFT_Physics_Viewport_Extensions"
+
+    @classmethod
+    def poll(cls, context):
+        if context.object and context.object.rigid_body:
+            return True
+        return None
+
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row()
+        row.prop(context.scene.msft_physics_scene_viewer_props, 'draw_velocity')
+
+
+class MSFTPhysicsSettingsPanel(bpy.types.Panel):
+    bl_label = 'MSFT Physics Extensions'
+    bl_idname = "OBJECT_PT_MSFT_Physics_Extensions"
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = 'physics'
+
+    @classmethod
+    def poll(cls, context):
+        if context.object and context.object.rigid_body:
+            return True
+        return None
+
+    def draw(self, context):
+        layout = self.layout
+
+        obj = context.object
+
+        #todo.eoin This feels a little different to Blender's usual UI.
+        # Figure out how to add nice boxes/expanding headers/margins. (Seems to be nested Panels?)
+        row = layout.row()
+        row.prop(obj.msft_physics_extra_props, 'linear_velocity')
+        row = layout.row()
+        row.prop(obj.msft_physics_extra_props, 'angular_velocity')
+
+        row = layout.row()
+        row.prop(obj.msft_physics_extra_props, 'enable_inertia_override')
+        row = layout.row()
+        row.prop(obj.msft_physics_extra_props, 'inertia_scaling')
+        row.enabled = obj.msft_physics_extra_props.enable_inertia_override
+
+        row = layout.row()
+        row.prop(obj.msft_physics_extra_props, 'enable_com_override')
+        row = layout.row()
+        row.prop(obj.msft_physics_extra_props, 'center_of_mass')
+        row.enabled = obj.msft_physics_extra_props.enable_com_override
+
+        row = layout.row()
+        row.prop(obj.msft_physics_extra_props, 'friction_combine')
+        row = layout.row()
+        row.prop(obj.msft_physics_extra_props, 'restitution_combine')
+
+draw_handler = None #<todo.eoin Clean this up
 def register():
-    bpy.utils.register_class(MSFTPhysicsExtensionProperties)
-    bpy.types.Scene.MSFTPhysicsExtensionProperties = bpy.props.PointerProperty(type=MSFTPhysicsExtensionProperties)
+    bpy.utils.register_class(MSFTPhysicsExporterProperties)
+    bpy.utils.register_class(MSFTPhysicsSceneAdditionalSettings)
+    bpy.utils.register_class(MSFTPhysicsBodyAdditionalSettings)
+    bpy.utils.register_class(MSFTPhysicsSettingsViewportPanel)
+    bpy.utils.register_class(MSFTPhysicsSettingsPanel)
+    bpy.types.Scene.msft_physics_exporter_props = bpy.props.PointerProperty(type=MSFTPhysicsExporterProperties)
+    bpy.types.Scene.msft_physics_scene_viewer_props = bpy.props.PointerProperty(type=MSFTPhysicsSceneAdditionalSettings)
+    bpy.types.Object.msft_physics_extra_props = bpy.props.PointerProperty(type=MSFTPhysicsBodyAdditionalSettings)
+    global draw_handler
+    draw_handler = bpy.types.SpaceView3D.draw_handler_add(viewportRenderHelper.drawExtraPhysicsProperties, (), 'WINDOW', 'POST_VIEW')
+
 
 def register_panel():
     # Register the panel on demand, we need to be sure to only register it once
@@ -58,16 +176,25 @@ def register_panel():
 
 def unregister_panel():
     # Since panel is registered on demand, it is possible it is not registered
-    try:
-        bpy.utils.unregister_class(GLTF_PT_UserExtensionPanel)
-    except Exception:
-        pass
-
+    for p in (GLTF_PT_UserExtensionPanel, MSFTPhysicsSettingsPanel):
+        try:
+            bpy.utils.unregister_class(p)
+        except Exception:
+            pass
 
 def unregister():
     unregister_panel()
-    bpy.utils.unregister_class(MSFTPhysicsExtensionProperties)
-    del bpy.types.Scene.MSFTPhysicsExtensionProperties
+    bpy.utils.unregister_class(MSFTPhysicsExporterProperties)
+    bpy.utils.unregister_class(MSFTPhysicsSceneAdditionalSettings)
+    bpy.utils.unregister_class(MSFTPhysicsBodyAdditionalSettings)
+    bpy.utils.unregister_class(MSFTPhysicsSettingsViewportPanel)
+    del bpy.types.Scene.msft_physics_exporter_props
+    del bpy.types.Scene.msft_physics_scene_viewer_props
+    del bpy.types.Object.msft_physics_extra_props
+
+    global draw_handler
+    bpy.types.SpaceView3D.draw_handler_remove(draw_handler, "WINDOW")
+    draw_handler = None
 
 class GLTF_PT_UserExtensionPanel(bpy.types.Panel):
     bl_space_type = 'FILE_BROWSER'
@@ -83,7 +210,7 @@ class GLTF_PT_UserExtensionPanel(bpy.types.Panel):
         return operator.bl_idname == 'EXPORT_SCENE_OT_gltf'
 
     def draw_header(self, context):
-        props = bpy.context.scene.MSFTPhysicsExtensionProperties
+        props = bpy.context.scene.msft_physics_exporter_props
         self.layout.prop(props, 'enabled')
 
     def draw(self, context):
@@ -91,7 +218,7 @@ class GLTF_PT_UserExtensionPanel(bpy.types.Panel):
         layout.use_property_split = False
         layout.use_property_decorate = False  # No animation.
 
-        props = bpy.context.scene.MSFTPhysicsExtensionProperties
+        props = bpy.context.scene.msft_physics_exporter_props
         layout.active = props.enabled
 
 class glTF2ExportUserExtension:
@@ -100,7 +227,7 @@ class glTF2ExportUserExtension:
         # Otherwise, it may fail because the gltf2 may not be loaded yet
         from io_scene_gltf2.io.com.gltf2_io_extensions import Extension
         self.Extension = Extension
-        self.properties = bpy.context.scene.MSFTPhysicsExtensionProperties
+        self.properties = bpy.context.scene.msft_physics_exporter_props
         self.physicsMaterials = []
 
         # Maps the gltf node to collider data. Since we don't know what other extensions
