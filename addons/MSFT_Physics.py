@@ -50,11 +50,11 @@ class MSFTPhysicsBodyAdditionalSettings(bpy.types.PropertyGroup):
     linear_velocity: bpy.props.FloatVectorProperty(name='Linear Velocity', default=(0,0,0))
     angular_velocity: bpy.props.FloatVectorProperty(name='Angular Velocity', default=(0,0,0))
 
-    enable_inertia_override: bpy.props.BoolProperty(name='Custom Inertia Tensor', default=False)
+    enable_inertia_override: bpy.props.BoolProperty(name='Override Inertia Tensor', default=False)
     inertia_major_axis: bpy.props.FloatVectorProperty(name='Inertia Major Axis', default=(1,1,1))
     inertia_orientation: bpy.props.FloatVectorProperty(name='Inertia Orientaiton', subtype='EULER')
 
-    enable_com_override: bpy.props.BoolProperty(name='Custom Center of Mass', default=False)
+    enable_com_override: bpy.props.BoolProperty(name='Override Center of Mass', default=False)
     center_of_mass: bpy.props.FloatVectorProperty(name='Center of Mass', default=(0,0,0))
 
     friction_combine: bpy.props.EnumProperty(name='Friction Combine mode', items=physics_material_combine_types)
