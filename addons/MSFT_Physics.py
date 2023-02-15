@@ -429,6 +429,26 @@ class glTF2ExportUserExtension:
                 # Blender node UI has no ability to specify inertia tensor,
                 # COM or velocities, so just export mass for now.
                 rb_data['mass'] = rb.mass
+
+                extraProps = blender_object.msft_physics_extra_props
+                lv = self.__convert_swizzle_location(Vector(extraProps.linear_velocity), export_settings)
+                if lv.length_squared != 0:
+                    rb_data['linearVelocity'] = lv.to_tuple()
+                av = self.__convert_swizzle_location(Vector(extraProps.angular_velocity), export_settings)
+                if av.length_squared != 0:
+                    rb_data['angularVelocity'] = av.to_tuple()
+
+                if extraProps.enable_com_override:
+                    rb_data['centerOfMass'] = Vector(extraProps.center_of_mass).to_tuple()
+
+                if extraProps.enable_inertia_override:
+                    inertiaOrientation = extraProps.inertia_orientation.to_matrix()
+                    diag = self.__convert_swizzle_location(extraProps.inertia_major_axis, export_settings)
+                    inertiaOrientation.col[0] *= diag
+                    inertiaOrientation.col[1] *= diag
+                    inertiaOrientation.col[2] *= diag
+                    rb_data['inertiaTensor'] = [x for col in inertiaOrientation for x in col]
+
                 extension_data['rigidBody'] = rb_data
 
             if blender_object.rigid_body:
@@ -443,6 +463,12 @@ class glTF2ExportUserExtension:
                 curMaterial = {'dynamicFriction': blender_object.rigid_body.friction,
                         'staticFriction': blender_object.rigid_body.friction,
                         'restitution': blender_object.rigid_body.restitution}
+
+                if blender_object.msft_physics_extra_props.friction_combine != physics_material_combine_types[0][0]:
+                    curMaterial['frictionCombine'] = blender_object.msft_physics_extra_props.friction_combine
+                if blender_object.msft_physics_extra_props.restitution_combine != physics_material_combine_types[0][0]:
+                    curMaterial['restitutionCombine'] = blender_object.msft_physics_extra_props.restitution_combine
+
                 self.physicsMaterials.append(curMaterial)
 
             if blender_object.rigid_body_constraint:
