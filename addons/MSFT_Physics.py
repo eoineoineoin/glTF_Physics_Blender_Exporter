@@ -315,6 +315,7 @@ class glTF2ExportUserExtension:
         self.Extension = Extension
         self.properties = bpy.context.scene.msft_physics_exporter_props
         self.physicsMaterials = []
+        self.physicsJointLimitData = []
 
         # Maps the gltf node to collider data. Since we don't know what other extensions
         # might produce collider data, we'll potentially need to re-index colliders
@@ -332,11 +333,18 @@ class glTF2ExportUserExtension:
         if gltf2_plan.extensions is None:
             gltf2_plan.extensions = {}
 
-        if len(self.physicsMaterials) > 0:
-            gltf2_plan.extensions[rigidBody_Extension_Name] = self.Extension(
+        if len(self.physicsMaterials) > 0 or len(self.physicsJointLimitData) > 0:
+            physicsRootExtension = self.Extension(
                 name=rigidBody_Extension_Name,
-                extension={'physicsMaterials': self.physicsMaterials},
+                extension={},
                 required=extension_is_required)
+            gltf2_plan.extensions[rigidBody_Extension_Name] = physicsRootExtension
+
+        if len(self.physicsMaterials) > 0:
+            physicsRootExtension.extension['physicsMaterials'] = self.physicsMaterials
+
+        if len(self.physicsJointLimitData) > 0:
+            physicsRootExtension.extension['physicsJointLimits'] = self.physicsJointLimitData
 
         #
         # Export and re-index any colliders we generated.
@@ -569,7 +577,8 @@ class glTF2ExportUserExtension:
                 angLimit['max'] = joint.limit_ang_z_upper
                 limits.append(angLimit)
 
-        jointData['constraints'] = limits
+        self.physicsJointLimitData.append(limits)
+        jointData['jointLimits'] = len(self.physicsJointLimitData) - 1
         return jointData
 
     def _generateColliderData(self, node, glNode, export_settings):
