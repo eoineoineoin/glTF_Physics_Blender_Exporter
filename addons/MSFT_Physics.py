@@ -3,7 +3,7 @@ import gpu
 from io_scene_gltf2.blender.exp import gltf2_blender_export_keys
 from io_scene_gltf2.io.com.gltf2_io import Node
 from gpu_extras.batch import batch_for_shader
-from mathutils import Matrix, Quaternion, Vector
+from mathutils import Matrix, Quaternion, Vector, Euler
 import os, sys, math, traceback
 
 bl_info = {
@@ -44,13 +44,15 @@ physics_material_combine_types = [
 
 class MSFTPhysicsSceneAdditionalSettings(bpy.types.PropertyGroup):
     draw_velocity: bpy.props.BoolProperty(name='Draw Velocities', default=False)
+    draw_mass_props: bpy.props.BoolProperty(name='Draw Mass Properties', default=False)
 
 class MSFTPhysicsBodyAdditionalSettings(bpy.types.PropertyGroup):
     linear_velocity: bpy.props.FloatVectorProperty(name='Linear Velocity', default=(0,0,0))
     angular_velocity: bpy.props.FloatVectorProperty(name='Angular Velocity', default=(0,0,0))
 
     enable_inertia_override: bpy.props.BoolProperty(name='Custom Inertia Tensor', default=False)
-    inertia_scaling: bpy.props.FloatVectorProperty(name='Inertia Tensor', default=(1,1,1))
+    inertia_major_axis: bpy.props.FloatVectorProperty(name='Inertia Major Axis', default=(1,1,1))
+    inertia_orientation: bpy.props.FloatVectorProperty(name='Inertia Orientaiton', subtype='EULER')
 
     enable_com_override: bpy.props.BoolProperty(name='Custom Center of Mass', default=False)
     center_of_mass: bpy.props.FloatVectorProperty(name='Center of Mass', default=(0,0,0))
@@ -88,6 +90,9 @@ class MSFTPhysicsSettingsViewportRenderHelper:
         if bpy.context.scene.msft_physics_scene_viewer_props.draw_velocity:
             self.draw_velocity(obj)
 
+        if bpy.context.scene.msft_physics_scene_viewer_props.draw_mass_props:
+            self.draw_mass_props(obj)
+
     def draw_velocity(self, obj):
         linVel = Vector(obj.msft_physics_extra_props.linear_velocity)
         angVel = Vector(obj.msft_physics_extra_props.angular_velocity)
@@ -114,6 +119,50 @@ class MSFTPhysicsSettingsViewportRenderHelper:
         self.shader.uniform_float("color", (1, 1, 0, 1))
         batch.draw(self.shader)
 
+    def draw_mass_props(self, obj):
+        if obj.msft_physics_extra_props.enable_com_override:
+            com = Vector(obj.msft_physics_extra_props.center_of_mass)
+        else:
+            com = Vector((0.0, 0.0, 0.0))
+
+        star = [Vector((-1,  0,  0)), Vector((1, 0, 0)),
+                Vector(( 0, -1,  0)), Vector((0, 1, 0)),
+                Vector(( 0,  0, -1)), Vector((0, 0, 1))]
+        star = [com + p * 0.1 for p in star]
+        batch = batch_for_shader(self.shader, 'LINES', {"pos": star})
+        self.shader.uniform_float("color", (1, 0, 1, 1))
+        batch.draw(self.shader)
+
+        unitBox = [Vector((-1, -1, -1)), Vector((-1, -1,  1)),
+                   Vector((-1,  1, -1)), Vector((-1,  1,  1)),
+                   Vector(( 1, -1, -1)), Vector(( 1, -1,  1)),
+                   Vector(( 1,  1, -1)), Vector(( 1,  1,  1))]
+        if obj.msft_physics_extra_props.enable_inertia_override:
+            itLocal = Vector(obj.msft_physics_extra_props.inertia_major_axis)
+            itOrientation = Euler(obj.msft_physics_extra_props.inertia_orientation).to_quaternion()
+            itBox = [obj.matrix_world @ (com + itOrientation @ (v * itLocal)) for v in unitBox]
+            itBox.append(itBox[0])
+            itBox.append(itBox[2])
+            itBox.append(itBox[1])
+            itBox.append(itBox[3])
+
+            itBox.append(itBox[4])
+            itBox.append(itBox[6])
+            itBox.append(itBox[5])
+            itBox.append(itBox[7])
+
+            itBox.append(itBox[0])
+            itBox.append(itBox[4])
+            itBox.append(itBox[1])
+            itBox.append(itBox[5])
+            itBox.append(itBox[2])
+            itBox.append(itBox[6])
+            itBox.append(itBox[3])
+            itBox.append(itBox[7])
+
+            batch = batch_for_shader(self.shader, 'LINES', {"pos": itBox})
+            self.shader.uniform_float("color", (1, 0, 1, 1))
+            batch.draw(self.shader)
 
 viewportRenderHelper = MSFTPhysicsSettingsViewportRenderHelper()
 
@@ -134,6 +183,8 @@ class MSFTPhysicsSettingsViewportPanel(bpy.types.Panel):
         layout = self.layout
         row = layout.row()
         row.prop(context.scene.msft_physics_scene_viewer_props, 'draw_velocity')
+        row = layout.row()
+        row.prop(context.scene.msft_physics_scene_viewer_props, 'draw_mass_props')
 
 
 class MSFTPhysicsSettingsPanel(bpy.types.Panel):
@@ -164,8 +215,11 @@ class MSFTPhysicsSettingsPanel(bpy.types.Panel):
         row = layout.row()
         row.prop(obj.msft_physics_extra_props, 'enable_inertia_override')
         row = layout.row()
-        row.prop(obj.msft_physics_extra_props, 'inertia_scaling')
         row.enabled = obj.msft_physics_extra_props.enable_inertia_override
+        row.prop(obj.msft_physics_extra_props, 'inertia_major_axis')
+        row = layout.row()
+        row.enabled = obj.msft_physics_extra_props.enable_inertia_override
+        row.prop(obj.msft_physics_extra_props, 'inertia_orientation')
 
         row = layout.row()
         row.prop(obj.msft_physics_extra_props, 'enable_com_override')
