@@ -4,7 +4,7 @@ from io_scene_gltf2.blender.exp import gltf2_blender_export_keys
 from io_scene_gltf2.io.com.gltf2_io import Node
 from gpu_extras.batch import batch_for_shader
 from mathutils import Matrix, Quaternion, Vector
-import os, sys, traceback
+import os, sys, math, traceback
 
 bl_info = {
     'name': 'MSFT_Physics',
@@ -69,6 +69,14 @@ class MSFTPhysicsSettingsViewportRenderHelper:
     def __init__(self):
         self.shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
 
+    def _calcPerpNormalized(self, v):
+        v4 = Vector(v.to_tuple() + (0.0,))
+        d0 = v4.yxww
+        d1 = v4.zwxw
+        if d0.length_squared < d1.length_squared:
+            return d1.xyz.normalized()
+        return d0.xyz.normalized()
+
     def drawExtraPhysicsProperties(self):
         if not bpy.context.object:
             return
@@ -76,12 +84,36 @@ class MSFTPhysicsSettingsViewportRenderHelper:
             return
 
         obj = bpy.context.object
+
         if bpy.context.scene.msft_physics_scene_viewer_props.draw_velocity:
-            coords = [(obj.matrix_world @ Vector((0, 0, 0))).to_tuple(),
-                      (obj.matrix_world @ Vector(obj.msft_physics_extra_props.linear_velocity)).to_tuple()]
-            self.batch = batch_for_shader(self.shader, 'LINES', {"pos": coords})
-            self.shader.uniform_float("color", (1, 1, 0, 1))
-            self.batch.draw(self.shader)
+            self.draw_velocity(obj)
+
+    def draw_velocity(self, obj):
+        linVel = Vector(obj.msft_physics_extra_props.linear_velocity)
+        angVel = Vector(obj.msft_physics_extra_props.angular_velocity)
+        coords = [(obj.matrix_world @ Vector((0, 0, 0))).to_tuple(),
+                  (obj.matrix_world @ linVel).to_tuple()]
+        batch = batch_for_shader(self.shader, 'LINES', {"pos": coords})
+        self.shader.uniform_float("color", (1, 1, 0, 1))
+        batch.draw(self.shader)
+
+        # Draw some samples of angular Velocity. This doesn't look great,
+        # maybe a more intiutive way to display this.
+        numAngularSamples = 20
+        coords = [coords[0]]
+        avPerp = self._calcPerpNormalized(angVel)
+        avAxis = angVel.normalized()
+        avMag = angVel.length * math.pi
+        for i in range(numAngularSamples):
+            t = float(i) / numAngularSamples
+            avQ = Quaternion(avAxis, avMag * t)
+            sampleLocal = avQ @ (avPerp * t) + linVel * t
+            coords.append((obj.matrix_world @ sampleLocal))
+            coords.append(coords[-1])
+        batch = batch_for_shader(self.shader, 'LINES', {"pos": coords})
+        self.shader.uniform_float("color", (1, 1, 0, 1))
+        batch.draw(self.shader)
+
 
 viewportRenderHelper = MSFTPhysicsSettingsViewportRenderHelper()
 
