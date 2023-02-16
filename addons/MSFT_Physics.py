@@ -22,8 +22,8 @@ bl_info = {
 # glTF extensions are named following a convention with known prefixes.
 # See: https://github.com/KhronosGroup/glTF/tree/master/extensions#about-gltf-extensions
 # also: https://github.com/KhronosGroup/glTF/blob/master/extensions/Prefixes.md
-collisionGeom_Extension_Name = 'MSFT_CollisionPrimitives'
-rigidBody_Extension_Name = 'MSFT_RigidBodies'
+collisionGeom_Extension_Name = 'MSFT_collision_primitives'
+rigidBody_Extension_Name = 'MSFT_rigid_bodies'
 
 # Support for an extension is "required" if a typical glTF viewer cannot be expected
 # to load a given model without understanding the contents of the extension.
