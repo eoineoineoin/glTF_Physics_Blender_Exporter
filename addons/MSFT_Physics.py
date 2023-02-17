@@ -13,10 +13,10 @@ bl_info = {
     'blender': (3, 3, 0),
     'location': 'File > Export > glTF 2.0',
     'description': 'Extension for adding rigid body information to exported glTF file',
-    'tracker_url': 'https://github.com/eoineoineoin/Blender_glTF_Physics/issues/',
+    'tracker_url': 'https://github.com/eoineoineoin/glTF_Physics_Blender_Exporter/issues',
     'isDraft': True,
     'developer': 'Eoin Mcloughlin (Havok)',
-    'url': 'https://github.com/eoineoineoin/Blender_glTF_Physics',
+    'url': 'https://github.com/eoineoineoin/glTF_Physics_Blender_Exporter',
 }
 
 # glTF extensions are named following a convention with known prefixes.
