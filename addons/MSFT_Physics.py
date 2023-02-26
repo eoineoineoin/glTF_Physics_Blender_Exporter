@@ -557,34 +557,40 @@ class glTF2ExportUserExtension:
             # Appears that Blender always uses 1D constraints
             if joint.use_limit_lin_x:
                 linLimit = {'linearAxes': [0]}
-                linLimit['min'] = joint.limit_lin_x_lower
-                linLimit['max'] = joint.limit_lin_x_upper
+                if joint.limit_lin_x_lower != 0 or joint.limit_lin_x_upper != 0:
+                    linLimit['min'] = joint.limit_lin_x_lower
+                    linLimit['max'] = joint.limit_lin_x_upper
                 limits.append(linLimit)
             if joint.use_limit_lin_y:
                 linLimit = {'linearAxes': [1]}
-                linLimit['min'] = joint.limit_lin_y_lower
-                linLimit['max'] = joint.limit_lin_y_upper
+                if joint.limit_lin_y_lower != 0 or joint.limit_lin_y_upper != 0:
+                    linLimit['min'] = joint.limit_lin_y_lower
+                    linLimit['max'] = joint.limit_lin_y_upper
                 limits.append(linLimit)
             if joint.use_limit_lin_z:
                 linLimit = {'linearAxes': [2]}
-                linLimit['min'] = joint.limit_lin_z_lower
-                linLimit['max'] = joint.limit_lin_z_upper
+                if joint.limit_lin_z_lower != 0 or joint.limit_lin_z_upper != 0:
+                    linLimit['min'] = joint.limit_lin_z_lower
+                    linLimit['max'] = joint.limit_lin_z_upper
                 limits.append(linLimit)
 
             if joint.use_limit_ang_x:
                 angLimit = {'angularAxes': [0]}
-                angLimit['min'] = joint.limit_ang_x_lower
-                angLimit['max'] = joint.limit_ang_x_upper
+                if joint.limit_ang_x_lower != 0 or joint.limit_ang_x_upper != 0:
+                    angLimit['min'] = joint.limit_ang_x_lower
+                    angLimit['max'] = joint.limit_ang_x_upper
                 limits.append(angLimit)
             if joint.use_limit_ang_y:
                 angLimit = {'angularAxes': [1]}
-                angLimit['min'] = joint.limit_ang_y_lower
-                angLimit['max'] = joint.limit_ang_y_upper
+                if joint.limit_ang_y_lower != 0 or joint.limit_ang_y_upper != 0:
+                    angLimit['min'] = joint.limit_ang_y_lower
+                    angLimit['max'] = joint.limit_ang_y_upper
                 limits.append(angLimit)
             if joint.use_limit_ang_y:
                 angLimit = {'angularAxes': [2]}
-                angLimit['min'] = joint.limit_ang_z_lower
-                angLimit['max'] = joint.limit_ang_z_upper
+                if joint.limit_ang_z_lower != 0 or joint.limit_ang_z_upper != 0:
+                    angLimit['min'] = joint.limit_ang_z_lower
+                    angLimit['max'] = joint.limit_ang_z_upper
                 limits.append(angLimit)
 
         self.physicsJointLimitData.append(limits)
