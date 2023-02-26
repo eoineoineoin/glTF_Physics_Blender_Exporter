@@ -47,6 +47,8 @@ class MSFTPhysicsSceneAdditionalSettings(bpy.types.PropertyGroup):
     draw_mass_props: bpy.props.BoolProperty(name='Draw Mass Properties', default=False)
 
 class MSFTPhysicsBodyAdditionalSettings(bpy.types.PropertyGroup):
+    is_trigger: bpy.props.BoolProperty(name='Is Trigger', default=False)
+    gravity_factor: bpy.props.FloatProperty(name='Gravity Factor', default=1.0)
     linear_velocity: bpy.props.FloatVectorProperty(name='Linear Velocity', default=(0,0,0))
     angular_velocity: bpy.props.FloatVectorProperty(name='Angular Velocity', default=(0,0,0))
 
@@ -207,6 +209,10 @@ class MSFTPhysicsSettingsPanel(bpy.types.Panel):
 
         #todo.eoin This feels a little different to Blender's usual UI.
         # Figure out how to add nice boxes/expanding headers/margins. (Seems to be nested Panels?)
+        row = layout.row()
+        row.prop(obj.msft_physics_extra_props, 'is_trigger')
+        row = layout.row()
+        row.prop(obj.msft_physics_extra_props, 'gravity_factor')
         row = layout.row()
         row.prop(obj.msft_physics_extra_props, 'linear_velocity')
         row = layout.row()
@@ -430,15 +436,17 @@ class glTF2ExportUserExtension:
             # specified by being a child of a body whose collider type is "Compound Parent"
             if blender_object.rigid_body and blender_object.rigid_body.enabled and not self._isPartOfCompound(blender_object):
                 rb = blender_object.rigid_body
+                extraProps = blender_object.msft_physics_extra_props
+
                 rb_data = {}
 
                 if rb.kinematic:
                     rb_data['isKinematic'] = True
-                # Blender node UI has no ability to specify inertia tensor,
-                # COM or velocities, so just export mass for now.
                 rb_data['mass'] = rb.mass
 
-                extraProps = blender_object.msft_physics_extra_props
+                if extraProps.gravity_factor != 1.0:
+                    rb_data['gravityFactor'] = extraProps.gravity_factor
+
                 lv = self.__convert_swizzle_location(Vector(extraProps.linear_velocity), export_settings)
                 if lv.length_squared != 0:
                     rb_data['linearVelocity'] = lv.to_tuple()
@@ -464,20 +472,22 @@ class glTF2ExportUserExtension:
                 if collider_data:
                     extension_data['collider'] = self._addCollider(gltf2_object, collider_data)
 
-                extension_data['physicsMaterial'] = len(self.physicsMaterials)
-                # Should we attempt to de-duplicate identical materials? This feels a little
-                # bit wasteful, but materials are not shared in Blender, and other tooling
-                # may want to change the material for one collider without affecting others.
-                curMaterial = {'dynamicFriction': blender_object.rigid_body.friction,
-                        'staticFriction': blender_object.rigid_body.friction,
-                        'restitution': blender_object.rigid_body.restitution}
+                extraProps = blender_object.msft_physics_extra_props
+                if not extraProps.is_trigger:
+                    extension_data['physicsMaterial'] = len(self.physicsMaterials)
+                    # Should we attempt to de-duplicate identical materials? This feels a little
+                    # bit wasteful, but materials are not shared in Blender, and other tooling
+                    # may want to change the material for one collider without affecting others.
+                    curMaterial = {'dynamicFriction': blender_object.rigid_body.friction,
+                            'staticFriction': blender_object.rigid_body.friction,
+                            'restitution': blender_object.rigid_body.restitution}
 
-                if blender_object.msft_physics_extra_props.friction_combine != physics_material_combine_types[0][0]:
-                    curMaterial['frictionCombine'] = blender_object.msft_physics_extra_props.friction_combine
-                if blender_object.msft_physics_extra_props.restitution_combine != physics_material_combine_types[0][0]:
-                    curMaterial['restitutionCombine'] = blender_object.msft_physics_extra_props.restitution_combine
+                    if extraProps.friction_combine != physics_material_combine_types[0][0]:
+                        curMaterial['frictionCombine'] = extraProps.friction_combine
+                    if extraProps.restitution_combine != physics_material_combine_types[0][0]:
+                        curMaterial['restitutionCombine'] = extraProps.restitution_combine
 
-                self.physicsMaterials.append(curMaterial)
+                    self.physicsMaterials.append(curMaterial)
 
             if blender_object.rigid_body_constraint:
                 # Because joints refer to another node in the scene, which may not be processed yet,
