@@ -124,16 +124,16 @@ class MSFTPhysicsSettingsViewportRenderHelper:
     def draw_mass_props(self, obj):
         if obj.msft_physics_extra_props.enable_com_override:
             com = Vector(obj.msft_physics_extra_props.center_of_mass)
+
+            star = [Vector((-1,  0,  0)), Vector((1, 0, 0)),
+                    Vector(( 0, -1,  0)), Vector((0, 1, 0)),
+                    Vector(( 0,  0, -1)), Vector((0, 0, 1))]
+            star = [obj.matrix_world @ com + p * 0.1 for p in star]
+            batch = batch_for_shader(self.shader, 'LINES', {"pos": star})
+            self.shader.uniform_float("color", (1, 0, 1, 1))
+            batch.draw(self.shader)
         else:
             com = Vector((0.0, 0.0, 0.0))
-
-        star = [Vector((-1,  0,  0)), Vector((1, 0, 0)),
-                Vector(( 0, -1,  0)), Vector((0, 1, 0)),
-                Vector(( 0,  0, -1)), Vector((0, 0, 1))]
-        star = [com + p * 0.1 for p in star]
-        batch = batch_for_shader(self.shader, 'LINES', {"pos": star})
-        self.shader.uniform_float("color", (1, 0, 1, 1))
-        batch.draw(self.shader)
 
         unitBox = [Vector((-1, -1, -1)), Vector((-1, -1,  1)),
                    Vector((-1,  1, -1)), Vector((-1,  1,  1)),
