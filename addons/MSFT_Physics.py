@@ -403,21 +403,15 @@ class glTF2ExportUserExtension:
             # jointInA/B are the pivots in the space of their connected node
             gltf_B = self.blenderNodeToGltfNode[bodyB]
 
-            if export_settings[gltf2_blender_export_keys.YUP]:
-                # If we're exporting with Y up, add an additional rotation so that
-                # Blender's constraint X/Y/Z aligns with what we expect
-                jointSpaceOrientation = Quaternion((halfSqrt2, halfSqrt2, 0, 0))
-            else:
-                jointSpaceOrientation = Quaternion()
-
-            jointInB = self._constructNode('jointSpaceB', jointFromBodyB.to_translation(),
-                    jointFromBodyB.to_quaternion() @ jointSpaceOrientation, export_settings)
+            jointInB = self._constructNode('jointSpaceB',
+                    jointFromBodyB.to_translation(),
+                     jointFromBodyB.to_quaternion(), export_settings)
             gltf_B.children.append(jointInB)
             jointData['connectedNode'] = jointInB
 
             gltf_A = self.blenderNodeToGltfNode[bodyA]
             jointInA = self._constructNode('jointSpaceA', jointFromBodyA.to_translation(),
-                    jointFromBodyA.to_quaternion() @ jointSpaceOrientation, export_settings)
+                    jointFromBodyA.to_quaternion(), export_settings)
             jointInA.extensions[rigidBody_Extension_Name] = self.Extension(
                 name=rigidBody_Extension_Name,
                 extension={'joint': jointData},
@@ -510,6 +504,12 @@ class glTF2ExportUserExtension:
         joint = node.rigid_body_constraint
         jointData = {'connectedNode': None, #Set by caller, as we need an additional node to align pivot
                 'enableCollision': not joint.disable_collisions}
+
+        if export_settings[gltf2_blender_export_keys.YUP]:
+            Y, Z = (2, 1)
+        else:
+            Y, Z = (1, 2)
+
         limits = []
         if joint.type == 'FIXED':
             limits.append({'linearAxes': [0, 1, 2]})
@@ -520,10 +520,10 @@ class glTF2ExportUserExtension:
             limits.append({'linearAxes': [0, 1, 2]})
 
             # Blender always specifies hinge about Z
-            limits.append({'angularAxes': [0, 1]})
+            limits.append({'angularAxes': [0, Y]})
 
             if joint.use_limit_ang_z:
-                angLimit = {'angularAxes': [2]}
+                angLimit = {'angularAxes': [Z]}
                 angLimit['min'] = joint.limit_ang_z_lower
                 angLimit['max'] = joint.limit_ang_z_upper
                 limits.append(angLimit)
@@ -562,13 +562,17 @@ class glTF2ExportUserExtension:
                     linLimit['max'] = joint.limit_lin_x_upper
                 limits.append(linLimit)
             if joint.use_limit_lin_y:
-                linLimit = {'linearAxes': [1]}
+                linLimit = {'linearAxes': [Y]}
                 if joint.limit_lin_y_lower != 0 or joint.limit_lin_y_upper != 0:
-                    linLimit['min'] = joint.limit_lin_y_lower
-                    linLimit['max'] = joint.limit_lin_y_upper
+                    if export_settings[gltf2_blender_export_keys.YUP]:
+                        linLimit['min'] = -joint.limit_lin_y_upper
+                        linLimit['max'] = -joint.limit_lin_y_lower
+                    else:
+                        linLimit['min'] = joint.limit_lin_y_lower
+                        linLimit['max'] = joint.limit_lin_y_upper
                 limits.append(linLimit)
             if joint.use_limit_lin_z:
-                linLimit = {'linearAxes': [2]}
+                linLimit = {'linearAxes': [Z]}
                 if joint.limit_lin_z_lower != 0 or joint.limit_lin_z_upper != 0:
                     linLimit['min'] = joint.limit_lin_z_lower
                     linLimit['max'] = joint.limit_lin_z_upper
@@ -581,13 +585,17 @@ class glTF2ExportUserExtension:
                     angLimit['max'] = joint.limit_ang_x_upper
                 limits.append(angLimit)
             if joint.use_limit_ang_y:
-                angLimit = {'angularAxes': [1]}
+                angLimit = {'angularAxes': [Y]}
                 if joint.limit_ang_y_lower != 0 or joint.limit_ang_y_upper != 0:
-                    angLimit['min'] = joint.limit_ang_y_lower
-                    angLimit['max'] = joint.limit_ang_y_upper
+                    if export_settings[gltf2_blender_export_keys.YUP]:
+                        angLimit['min'] = -joint.limit_ang_y_upper
+                        angLimit['max'] = -joint.limit_ang_y_lower
+                    else:
+                        angLimit['min'] = joint.limit_ang_y_lower
+                        angLimit['max'] = joint.limit_ang_y_upper
                 limits.append(angLimit)
-            if joint.use_limit_ang_y:
-                angLimit = {'angularAxes': [2]}
+            if joint.use_limit_ang_z:
+                angLimit = {'angularAxes': [Z]}
                 if joint.limit_ang_z_lower != 0 or joint.limit_ang_z_upper != 0:
                     angLimit['min'] = joint.limit_ang_z_lower
                     angLimit['max'] = joint.limit_ang_z_upper
@@ -694,7 +702,7 @@ class glTF2ExportUserExtension:
     def _constructNode(self, name, translation, rotation, export_settings):
         return Node(name = name,
                 translation = [x for x in self.__convert_swizzle_location(translation, export_settings)],
-                rotation = self._serializeQuaternion(rotation),
+                rotation = self._serializeQuaternion(self.__convert_swizzle_rotation(rotation, export_settings)),
                 matrix = [], camera = None, children = [], extensions = {}, extras = None, mesh = None,
                 scale = None, skin = None, weights = None)
 
@@ -713,6 +721,17 @@ class glTF2ExportUserExtension:
             return Vector((scale[0], scale[2], scale[1]))
         else:
             return Vector((scale[0], scale[1], scale[2]))
+
+    # Copy-pasted from the glTF exporter; are they accessible some other way, without having to duplicate?
+    def __convert_swizzle_rotation(self, rot, export_settings):
+        """
+        Convert a quaternion rotation from Blender coordinate system to glTF coordinate system.
+        'w' is still at first position.
+        """
+        if export_settings[gltf2_blender_export_keys.YUP]:
+            return Quaternion((rot[0], rot[1], rot[3], -rot[2]))
+        else:
+            return Quaternion((rot[0], rot[1], rot[2], rot[3]))
 
     def _serializeQuaternion(self, q):
         """Converts a quaternion to a type which can be serialized, with components in correct order"""
