@@ -6,6 +6,10 @@ from gpu_extras.batch import batch_for_shader
 from mathutils import Matrix, Quaternion, Vector, Euler
 import os, sys, math, traceback
 
+from io_scene_gltf2.io.com.gltf2_io import from_dict, from_union, from_none, from_float
+from io_scene_gltf2.io.com.gltf2_io import from_str, from_list, from_bool, from_int
+from io_scene_gltf2.io.com.gltf2_io import to_float, to_class
+
 bl_info = {
     'name': 'MSFT_Physics',
     'category': 'Import-Export',
@@ -41,6 +45,213 @@ physics_material_combine_types = [
     ('MAXIMUM', 'Maximum', '', 2),
     ('MULTIPLY', 'Multiply', '', 3)
 ]
+
+class Collider:
+    def __init__(self):
+        self.collision_systems = None
+        self.collide_with_systems = None
+        self.not_collide_systems = None
+        self.sphere = None
+        self.box = None
+        self.capsule = None
+        self.cylinder = None
+        self.convex = None
+        self.trimesh = None
+        self.extensions = None
+        self.extras = None
+
+    def to_dict(self):
+        result = {}
+        result["collisionSystems"] = from_union([lambda x: from_list(from_str, x), from_none], self.collision_systems)
+        result["collideWithSystems"] = from_union([lambda x: from_list(from_str, x), from_none], self.collide_with_systems)
+        result["notCollideWithSystems"] = from_union([lambda x: from_list(from_str, x), from_none], self.not_collide_systems)
+
+        result["sphere"] = from_union([lambda x: to_class(Collider.Sphere, x), from_none], self.sphere)
+        result["box"] = from_union([lambda x: to_class(Collider.Box, x), from_none], self.box)
+        result["capsule"] = from_union([lambda x: to_class(Collider.Capsule, x), from_none], self.capsule)
+        result["cylinder"] = from_union([lambda x: to_class(Collider.Cylinder, x), from_none], self.cylinder)
+        result["convex"] = from_union([lambda x: to_class(Collider.Convex, x), from_none], self.convex)
+        result["trimesh"] = from_union([lambda x: to_class(Collider.TriMesh, x), from_none], self.trimesh)
+
+        result["extensions"] = from_union([lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none], self.extensions)
+        result["extras"] = self.extras
+        return result
+
+    class Sphere:
+        def __init__(self, radius = 0.5):
+            self.radius = radius
+            self.extensions = None
+            self.extras = None
+    class Box:
+        def __init__(self, size = Vector((1.0, 1.0, 1.0))):
+            self.size = size
+            self.extensions = None
+            self.extras = None
+    class Capsule:
+        def __init__(self, height = 0.5, radius = 0.25):
+            self.height = height
+            self.radius = radius
+            self.extensions = None
+            self.extras = None
+    class Cylinder:
+        def __init__(self, height = 0.5, radius = 0.25):
+            self.height = height
+            self.radius = radius
+            self.extensions = None
+            self.extras = None
+    class Convex:
+        def __init__(self, mesh):
+            self.mesh = mesh
+            self.extensions = None
+            self.extras = None
+        def to_dict(self):
+            result = {}
+            print(self.mesh)
+            #result["mesh"] = from_int(self.mesh)
+            result["mesh"] = self.mesh
+            result["extensions"] = from_union([lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none], self.extensions)
+            result["extras"] = self.extras
+            return result
+    class TriMesh:
+        def __init__(self, mesh):
+            self.mesh = mesh
+            self.extensions = None
+            self.extras = None
+        def to_dict(self):
+            result = {}
+            result["mesh"] = from_int(self.mesh)
+            result["extensions"] = from_union([lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none], self.extensions)
+            result["extras"] = self.extras
+            return result
+
+class PhysicsMaterial:
+    def __init__(self):
+        self.static_friction = None
+        self.dynamic_friction = None
+        self.restitution = None
+        self.friction_combine = None
+        self.restitution_combine = None
+        self.extensions = None
+        self.extras = None
+
+    def to_dict(self):
+        result = {}
+        result["staticFriction"] = from_union([from_float, from_none], self.static_friction)
+        result["dynamicFriction"] = from_union([from_float, from_none], self.dynamic_friction)
+        result["restitution"] = from_union([from_float, from_none], self.restitution)
+        result["frictionCombine"] = from_union([from_str, from_none], self.friction_combine)
+        result["restitutionCombine"] = from_union([from_str, from_none], self.restitution_combine)
+        result["extensions"] = from_union([lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none], self.extensions)
+        result["extras"] = self.extras
+        return result
+
+class RigidBody:
+    def __init__(self):
+        self.is_kinematic = None
+        self.mass = None
+        self.center_of_mass = None
+        self.inertia_tensor = None
+        self.linear_velocity = None
+        self.angular_velocity = None
+        self.gravity_factor = None
+        self.extensions = None
+        self.extras = None
+
+    def to_dict(self):
+        result = {}
+        result["isKinematic"] = from_union([from_bool, from_none], self.is_kinematic)
+        result["mass"] = from_union([from_float, from_none], self.mass)
+        result["centerOfMass"] = from_union([lambda x: from_list(from_float, x), from_none], self.center_of_mass)
+        result["inertiaTensor"] = from_union([lambda x: from_list(from_float, x), from_none], self.inertia_tensor)
+        result["linearVelocity"] = from_union([lambda x: from_list(from_float, x), from_none], self.linear_velocity)
+        result["angularVelocity"] = from_union([lambda x: from_list(from_float, x), from_none], self.angular_velocity)
+        result["gravityFactor"] = from_union([from_float, from_none], self.gravity_factor)
+        result["extensions"] = from_union([lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none], self.extensions)
+        result["extras"] = self.extras
+
+        return result
+
+class JointLimit:
+    def __init__():
+        self.angular_axes = None
+        self.linear_axes = None
+        self.min_limit = None
+        self.max_limit = None
+
+    @staticmethod
+    def Linear(axes):
+        result = JointLimit()
+        result.linear_axes = axes
+
+    @staticmethod
+    def Angular(axes):
+        result = JointLimit
+        result.angular_axes = axes
+
+    def to_dict():
+        return {}
+
+class JointLimitSet:
+    def __init__(self):
+        self.limits = []
+
+    def to_dict(self):
+        pass
+
+class Joint:
+    def __init__():
+        self.connected_node = None
+        self.joint_limits = None
+        self.enable_collision = None
+        self.extensions = None
+        self.extras = None
+
+    def to_dict():
+        result = {}
+        result["connectedNode"] = from_union([from_int, from_none], self.connected_node)
+        result["jointLimits"] = from_union([from_int, from_none], self.jointLimits)
+        result["enableCollision"] = from_union([from_bool, from_none], self.enable_collision)
+        result["extensions"] = from_union([lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none], self.extensions)
+        result["extras"] = self.extras
+        return result
+
+
+class RigidBodiesNodeExtension:
+    def __init__(self):
+        self.rigid_body = None
+        self.collider = None
+        self.physics_material = None
+        self.joint = None
+        self.extensions = None
+        self.extras = None
+
+    def to_dict(self):
+        result = {}
+        result["rigidBody"] = from_union([lambda x: to_class(RigidBody, x), from_none], self.rigid_body)
+        result["collider"] = from_union([from_int, from_none], self.collider)
+        result["physicsMaterial"] = from_union([from_int, from_none], self.physics_material)
+        result["joint"] = from_union([lambda x: to_class(Joint, x), from_none], self.joint)
+        result["extensions"] = from_union([lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none], self.extensions)
+        result["extras"] = self.extras
+        return result
+
+class RigidBodiesGlTFExtension:
+    def __init__(self):
+        self.physics_materials = []
+        self.physics_joint_limits = []
+
+    def should_export(self):
+        return len(self.physics_materials) > 0 or len(self.physics_joint_limits) > 0
+
+    def to_dict(self):
+        result = {}
+        if len(self.physics_materials) > 0:
+            result["physicsMaterials"] = from_list(lambda x: to_class(PhysicsMaterial, x), self.physics_materials)
+        if len(self.physics_joint_limits) > 0:
+            result["physicsJointLimits"] = from_list(lambda x: to_class(JointLimitSet, x), self.physics_joint_limits)
+        return result
+
+
 
 class MSFTPhysicsSceneAdditionalSettings(bpy.types.PropertyGroup):
     draw_velocity: bpy.props.BoolProperty(name='Draw Velocities', default=False)
@@ -320,8 +531,7 @@ class glTF2ExportUserExtension:
         from io_scene_gltf2.io.com.gltf2_io_extensions import Extension
         self.Extension = Extension
         self.properties = bpy.context.scene.msft_physics_exporter_props
-        self.physicsMaterials = []
-        self.physicsJointLimitData = []
+        self.gltfExt = RigidBodiesGlTFExtension()
 
         # Maps the gltf node to collider data. Since we don't know what other extensions
         # might produce collider data, we'll potentially need to re-index colliders
@@ -339,18 +549,12 @@ class glTF2ExportUserExtension:
         if gltf2_plan.extensions is None:
             gltf2_plan.extensions = {}
 
-        if len(self.physicsMaterials) > 0 or len(self.physicsJointLimitData) > 0:
+        if self.gltfExt.should_export():
             physicsRootExtension = self.Extension(
                 name=rigidBody_Extension_Name,
-                extension={},
+                extension=self.gltfExt.to_dict(),
                 required=extension_is_required)
             gltf2_plan.extensions[rigidBody_Extension_Name] = physicsRootExtension
-
-        if len(self.physicsMaterials) > 0:
-            physicsRootExtension.extension['physicsMaterials'] = self.physicsMaterials
-
-        if len(self.physicsJointLimitData) > 0:
-            physicsRootExtension.extension['physicsJointLimits'] = self.physicsJointLimitData
 
         #
         # Export and re-index any colliders we generated.
@@ -367,6 +571,8 @@ class glTF2ExportUserExtension:
             cgExtension.extension['colliders'] = []
 
         for gltfNode in self.physicsColliders:
+            # Fixup the collider ID
+            #<todo.eoin Is there a better way to do this? Node.children seems to do this automagically somewhere?
             gltfNode.extensions[rigidBody_Extension_Name]['collider'] = len(cgExtension.extension['colliders'])
             cgExtension.extension['colliders'].append(self.physicsColliders[gltfNode])
 
@@ -423,33 +629,34 @@ class glTF2ExportUserExtension:
             self.blenderNodeToGltfNode[blender_object] = gltf2_object
 
             if gltf2_object.extensions is None:
+                #<todo.eoin Pretty sure this is never hit, due to export_user_extensions()
                 gltf2_object.extensions = {}
 
-            extension_data = {}
+            extension_data = RigidBodiesNodeExtension()
             # Blender has no way to specify a shape without a rigid body. Instead, a single shape is
             # specified by being a child of a body whose collider type is "Compound Parent"
             if blender_object.rigid_body and blender_object.rigid_body.enabled and not self._isPartOfCompound(blender_object):
                 rb = blender_object.rigid_body
                 extraProps = blender_object.msft_physics_extra_props
 
-                rb_data = {}
+                rigid_body = RigidBody()
 
                 if rb.kinematic:
-                    rb_data['isKinematic'] = True
-                rb_data['mass'] = rb.mass
+                    rigid_body.is_kinematic = rb.kinematic
+                rigid_body.mass = rb.mass
 
                 if extraProps.gravity_factor != 1.0:
-                    rb_data['gravityFactor'] = extraProps.gravity_factor
+                    rigid_body.gravity_factor = extraProps.gravity_factor
 
                 lv = self.__convert_swizzle_location(Vector(extraProps.linear_velocity), export_settings)
                 if lv.length_squared != 0:
-                    rb_data['linearVelocity'] = lv.to_tuple()
+                    rigid_body.linear_velocity = lv
                 av = self.__convert_swizzle_location(Vector(extraProps.angular_velocity), export_settings)
                 if av.length_squared != 0:
-                    rb_data['angularVelocity'] = av.to_tuple()
+                    rigid_body.angular_velocity = av
 
                 if extraProps.enable_com_override:
-                    rb_data['centerOfMass'] = Vector(extraProps.center_of_mass).to_tuple()
+                    rigid_body.center_of_mass = Vector(extraProps.center_of_mass)
 
                 if extraProps.enable_inertia_override:
                     inertiaOrientation = extraProps.inertia_orientation.to_matrix()
@@ -457,31 +664,32 @@ class glTF2ExportUserExtension:
                     inertiaOrientation.col[0] *= diag
                     inertiaOrientation.col[1] *= diag
                     inertiaOrientation.col[2] *= diag
-                    rb_data['inertiaTensor'] = [x for col in inertiaOrientation for x in col]
+                    rigid_body.inertia_tensor = [x for col in inertiaOrientation for x in col]
 
-                extension_data['rigidBody'] = rb_data
+                extension_data.rigid_body = rigid_body
 
             if blender_object.rigid_body:
                 collider_data = self._generateColliderData(blender_object, gltf2_object, export_settings)
                 if collider_data:
-                    extension_data['collider'] = self._addCollider(gltf2_object, collider_data)
+                    extension_data.collider = self._addCollider(gltf2_object, collider_data)
 
                 extraProps = blender_object.msft_physics_extra_props
                 if not extraProps.is_trigger:
-                    extension_data['physicsMaterial'] = len(self.physicsMaterials)
+                    extension_data.physics_material = len(self.gltfExt.physics_materials)
                     # Should we attempt to de-duplicate identical materials? This feels a little
                     # bit wasteful, but materials are not shared in Blender, and other tooling
                     # may want to change the material for one collider without affecting others.
-                    curMaterial = {'dynamicFriction': blender_object.rigid_body.friction,
-                            'staticFriction': blender_object.rigid_body.friction,
-                            'restitution': blender_object.rigid_body.restitution}
+                    mat = PhysicsMaterial()
+                    mat.static_friction = blender_object.rigid_body.friction
+                    mat.dynamic_friction = blender_object.rigid_body.friction
+                    mat.restitution = blender_object.rigid_body.restitution
 
                     if extraProps.friction_combine != physics_material_combine_types[0][0]:
-                        curMaterial['frictionCombine'] = extraProps.friction_combine
+                        mat.friction_combine = extraProps.friction_combine
                     if extraProps.restitution_combine != physics_material_combine_types[0][0]:
-                        curMaterial['restitutionCombine'] = extraProps.restitution_combine
+                        mat.restitution_combine = extraProps.restitution_combine
 
-                    self.physicsMaterials.append(curMaterial)
+                    self.gltfExt.physics_materials.append(mat)
 
             if blender_object.rigid_body_constraint:
                 # Because joints refer to another node in the scene, which may not be processed yet,
@@ -490,7 +698,7 @@ class glTF2ExportUserExtension:
 
             gltf2_object.extensions[rigidBody_Extension_Name] = self.Extension(
                 name=rigidBody_Extension_Name,
-                extension=extension_data,
+                extension=extension_data.to_dict(),
                 required=extension_is_required
             )
 
@@ -502,113 +710,115 @@ class glTF2ExportUserExtension:
     def _generateJointData(self, node, glNode, export_settings):
         """Converts the concrete joint data on `node` to a generic 6DOF representation"""
         joint = node.rigid_body_constraint
-        jointData = {'connectedNode': None, #Set by caller, as we need an additional node to align pivot
-                'enableCollision': not joint.disable_collisions}
+        jointData = Joint()
+        if not joint.disable_collisions:
+            joint.enable_collision = not joint.disable_collisions
 
         if export_settings[gltf2_blender_export_keys.YUP]:
-            Y, Z = (2, 1)
+            X, Y, Z = (0, 2, 1)
         else:
-            Y, Z = (1, 2)
+            X, Y, Z = (0, 1, 2)
 
-        limits = []
+        limitSet = JointLimitSet()
         if joint.type == 'FIXED':
-            limits.append({'linearAxes': [0, 1, 2]})
-            limits.append({'angularAxes': [0, 1, 2]})
+            limitSet.joint_limits.append(JointLimit.Linear([X, Y, Z]))
+            limitSet.joint_limits.append(JointLimit.Angular([X, Y, Z]))
         elif joint.type == 'POINT':
-            limits.append({'linearAxes': [0, 1, 2]})
+            limitSet.joint_limits.append(JointLimit.Linear([X, Y, Z]))
         elif joint.type == 'HINGE':
-            limits.append({'linearAxes': [0, 1, 2]})
+            limitSet.joint_limits.append(JointLimit.Linear([X, Y, Z]))
 
             # Blender always specifies hinge about Z
-            limits.append({'angularAxes': [0, Y]})
+            limitSet.joint_limits.append({'angularAxes': [X, Y]})
 
             if joint.use_limit_ang_z:
-                angLimit = {'angularAxes': [Z]}
-                angLimit['min'] = joint.limit_ang_z_lower
-                angLimit['max'] = joint.limit_ang_z_upper
-                limits.append(angLimit)
+                angLimit = JointLimit.Angular([Z])
+                angLimit.min_limit = joint.limit_ang_z_lower
+                angLimit.max_limit = joint.limit_ang_z_upper
+                limitSet.joint_limits.append(angLimit)
         elif joint.type == 'SLIDER':
-            limits.append({'angularAxes': [0, 1, 2]})
+            limitSet.joint_limits.append(JointLimit.Angular([X, Y, Z]))
 
             # Blender always specifies slider limit along X
-            limits.append({'linearAxes': [1, 2]})
+            limitSet.joint_limits.append(JointLimit.Linear([Y, Z]))
 
             if joint.use_limit_lin_x:
-                linLimit = {'linearAxes': [0]}
-                linLimit['min'] = joint.limit_lin_x_lower
-                linLimit['max'] = joint.limit_lin_x_upper
-                limits.append(linLimit)
+                linLimit = JointLimit.Linear([X])
+                linLimit.min_limit = joint.limit_lin_x_lower
+                linLimit.max_limit = joint.limit_lin_x_upper
+                limitSet.joint_limits.append(linLimit)
         elif joint.type == 'PISTON':
             # Blender always specifies slider limit along/around X
-            limits.append({'angularAxes': [1, 2]})
-            limits.append({'linearAxes': [1, 2]})
+            limitSet.joint_limits.append(JointLimit.Angular([Y, Z]))
+            limitSet.joint_limits.append(JointLimit.Linear([Y, Z]))
 
             if joint.use_limit_lin_x:
-                linLimit = {'linearAxes': [0]}
-                linLimit['min'] = joint.limit_lin_x_lower
-                linLimit['max'] = joint.limit_lin_x_upper
-                limits.append(linLimit)
+                linLimit = JointLimit.Linear([X])
+                linLimit.min_limit = joint.limit_lin_x_lower
+                linLimit.max_limit = joint.limit_lin_x_upper
+                limitSet.joint_limits.append(linLimit)
             if joint.use_limit_ang_x:
-                angLimit = {'angularAxes': [0]}
-                angLimit['min'] = joint.limit_ang_x_lower
-                angLimit['max'] = joint.limit_ang_x_upper
-                limits.append(angLimit)
+                angLimit = JointLimit.Angular([X])
+                angLimit.min_limit = joint.limit_ang_x_lower
+                angLimit.max_limit = joint.limit_ang_x_upper
+                limitSet.joint_limits.append(angLimit)
         elif joint.type == 'GENERIC':
             # Appears that Blender always uses 1D constraints
             if joint.use_limit_lin_x:
-                linLimit = {'linearAxes': [0]}
+                linLimit = JointLimit.Linear([X])
                 if joint.limit_lin_x_lower != 0 or joint.limit_lin_x_upper != 0:
-                    linLimit['min'] = joint.limit_lin_x_lower
-                    linLimit['max'] = joint.limit_lin_x_upper
-                limits.append(linLimit)
+                    linLimit.min_limit = joint.limit_lin_x_lower
+                    linLimit.max_limit = joint.limit_lin_x_upper
+                limitSet.joint_limits.append(linLimit)
             if joint.use_limit_lin_y:
-                linLimit = {'linearAxes': [Y]}
+                linLimit = JointLimit.Linear([Y])
                 if joint.limit_lin_y_lower != 0 or joint.limit_lin_y_upper != 0:
                     if export_settings[gltf2_blender_export_keys.YUP]:
-                        linLimit['min'] = -joint.limit_lin_y_upper
-                        linLimit['max'] = -joint.limit_lin_y_lower
+                        linLimit.min_limit = -joint.limit_lin_y_upper
+                        linLimit.max_limit = -joint.limit_lin_y_lower
                     else:
-                        linLimit['min'] = joint.limit_lin_y_lower
-                        linLimit['max'] = joint.limit_lin_y_upper
-                limits.append(linLimit)
+                        linLimit.min_limit = joint.limit_lin_y_lower
+                        linLimit.max_limit = joint.limit_lin_y_upper
+                limitSet.joint_limits.append(linLimit)
             if joint.use_limit_lin_z:
-                linLimit = {'linearAxes': [Z]}
+                linLimit = JointLimit.Linear([Z])
                 if joint.limit_lin_z_lower != 0 or joint.limit_lin_z_upper != 0:
-                    linLimit['min'] = joint.limit_lin_z_lower
-                    linLimit['max'] = joint.limit_lin_z_upper
-                limits.append(linLimit)
+                    linLimit.min_limit = joint.limit_lin_z_lower
+                    linLimit.max_limit = joint.limit_lin_z_upper
+                limitSet.joint_limits.append(linLimit)
 
             if joint.use_limit_ang_x:
-                angLimit = {'angularAxes': [0]}
+                angLimit = JointLimit.Angular([X])
                 if joint.limit_ang_x_lower != 0 or joint.limit_ang_x_upper != 0:
-                    angLimit['min'] = joint.limit_ang_x_lower
-                    angLimit['max'] = joint.limit_ang_x_upper
-                limits.append(angLimit)
+                    angLimit.min_limit = joint.limit_ang_x_lower
+                    angLimit.max_limit = joint.limit_ang_x_upper
+                limitSet.joint_limits.append(angLimit)
             if joint.use_limit_ang_y:
-                angLimit = {'angularAxes': [Y]}
+                angLimit = JointLimit.Angular([Y])
                 if joint.limit_ang_y_lower != 0 or joint.limit_ang_y_upper != 0:
                     if export_settings[gltf2_blender_export_keys.YUP]:
-                        angLimit['min'] = -joint.limit_ang_y_upper
-                        angLimit['max'] = -joint.limit_ang_y_lower
+                        angLimit.min_limit = -joint.limit_ang_y_upper
+                        angLimit.max_limit = -joint.limit_ang_y_lower
                     else:
-                        angLimit['min'] = joint.limit_ang_y_lower
-                        angLimit['max'] = joint.limit_ang_y_upper
-                limits.append(angLimit)
+                        angLimit.min_limit = joint.limit_ang_y_lower
+                        angLimit.max_limit = joint.limit_ang_y_upper
+                limitSet.joint_limits.append(angLimit)
             if joint.use_limit_ang_z:
-                angLimit = {'angularAxes': [Z]}
+                angLimit = JointLimit.Angular([Z])
                 if joint.limit_ang_z_lower != 0 or joint.limit_ang_z_upper != 0:
-                    angLimit['min'] = joint.limit_ang_z_lower
-                    angLimit['max'] = joint.limit_ang_z_upper
-                limits.append(angLimit)
+                    angLimit.min_limit = joint.limit_ang_z_lower
+                    angLimit.max_limit = joint.limit_ang_z_upper
+                limitSet.joint_limits.append(angLimit)
 
-        self.physicsJointLimitData.append(limits)
-        jointData['jointLimits'] = len(self.physicsJointLimitData) - 1
+        self.gltfExt.physics_joint_limits.append(limitSet)
+        jointData.joint_limits = len(self.gltfExt.physics_joint_limits) - 1
         return jointData
 
     def _generateColliderData(self, node, glNode, export_settings):
         if node.rigid_body == None or node.rigid_body.collision_shape == 'COMPOUND':
             return None
         colliderData = {}
+        #collider = Collider()
 
         # Blender's native collision filtering has less functionality than the spec enables:
         #    * Children of COMPOUND_PARENT don't have a UI to configure filtering
@@ -616,13 +826,17 @@ class glTF2ExportUserExtension:
         #    * Seems there's no "user friendly" names
         collisionSystems = ["System_%i" % i for (i,enabled) in enumerate(node.rigid_body.collision_collections) if enabled]
         colliderData['collisionSystems'] = collisionSystems
+        #collider.collision_systems = collisionSystems
         colliderData['collideWithSystems'] = collisionSystems
+        #collider.collide_with_systems = collisionSystems
 
         if (node.rigid_body.collision_shape == 'CONE'
                 or node.rigid_body.collision_shape == 'CONVEX_HULL'):
             colliderData['convex'] = {'mesh': glNode.mesh}
+            #collider.convex = Collider.Convex(glNode.mesh)
         elif node.rigid_body.collision_shape == 'MESH':
             colliderData['trimesh'] = {'mesh': glNode.mesh}
+            #collider.trimesh = Collider.Mesh(glNode.mesh)
         else:
             # If the shape is a geometric primitive, we may have to apply modifiers
             # to see the final geometry. (glNode has already had modifiers applied)
@@ -632,11 +846,13 @@ class glTF2ExportUserExtension:
                     for v in meshData.vertices:
                         maxRR = max(maxRR, v.co.length_squared)
                     colliderData['sphere'] = {'radius': maxRR ** 0.5}
+                    #collider.sphere = Collider.Sphere(radius = maxRR ** 0.5)
                 elif node.rigid_body.collision_shape == 'BOX':
                     maxHalfExtent = [0,0,0]
                     for v in meshData.vertices:
                         maxHalfExtent = [max(a,abs(b)) for a,b in zip(maxHalfExtent, v.co)]
                     colliderData['box'] = {'size': [he * 2 for he in self.__convert_swizzle_scale(maxHalfExtent, export_settings)]}
+                    #collider.box = Collider.Box(size = self.__convert_swizzle_scale(maxHalfExtent, export_settings) * 2)
                 #<TODO.eoin.Blender Cone shape feels underspecified? We need to do a proper calculation here
                 elif (node.rigid_body.collision_shape == 'CAPSULE' or
                         node.rigid_body.collision_shape == 'CYLINDER'):
@@ -657,8 +873,10 @@ class glTF2ExportUserExtension:
                         # behaviour.
                         height = max(0, height - radius * 2)
                         colliderData['capsule'] = {'height': height, 'radius': radius}
+                        #collider.capsule = Collider.Capsule(height = height, radius = radius)
                     else:
                         colliderData['cylinder'] = {'height': height, 'radius': radius}
+                        #collider.cylinder = Collider.Cylinder(height = height, radius = radius)
 
                     if not export_settings[gltf2_blender_export_keys.YUP]:
                         # Add an additional node to align the object, so the shape is oriented correctly when constructed along +Y
@@ -667,16 +885,18 @@ class glTF2ExportUserExtension:
                         colliderAlignment.extensions[rigidBody_Extension_Name] = self.Extension(
                             name=rigidBody_Extension_Name,
                             extension={'collider': self._addCollider(colliderAlignment, colliderData)},
+                            #extension={'collider': self._addCollider(colliderAlignment, collider)},
                             required=extension_is_required)
                         glNode.children.append(colliderAlignment)
                         # We've added the collider data to a child of glNode;
                         # return None so that the glNode doesn't get collider data,
                         return None
         return colliderData
+        #return collider
 
-    def _addCollider(self, gltfNode, colliderData):
-        self.physicsColliders[gltfNode] = colliderData
-        return len(self.physicsColliders[gltfNode]) - 1
+    def _addCollider(self, gltfNode, collider):
+        self.physicsColliders[gltfNode] = collider
+        return len(self.physicsColliders) - 1
 
     def _accessMeshData(self, node, export_settings):
         """RAII-style function to access mesh data with modifiers attached"""
