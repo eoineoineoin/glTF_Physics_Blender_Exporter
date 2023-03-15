@@ -51,6 +51,16 @@ def from_vec(x):
     assert isinstance(x, Vector)
     return from_list(from_float, list(x.to_tuple()))
 
+def from_quat(x):
+    """Utility to convert a quaternion, in the style of gltf2_io"""
+    assert isinstance(x, Quaternion)
+    return from_list(from_float, list(x))
+
+def inv_vec(v):
+    """Utility to calculate the reciprocal of a vector [1/v_0, 1/v_1, ... 1/v_n]"""
+    assert isinstance(v, Vector)
+    return Vector([1.0 / x for x in v])
+
 
 class gltfProperty():
     def __init__(self):
@@ -218,6 +228,9 @@ class CollisionGeomGlTFExtension:
     def __init__(self):
         self.colliders = []
 
+    def should_export(self):
+        return len(self.colliders) > 0
+
     @staticmethod
     def from_dict(obj):
         assert isinstance(obj, dict)
@@ -258,9 +271,10 @@ class RigidBody(gltfProperty):
     def __init__(self):
         super().__init__()
         self.is_kinematic = None
-        self.mass = None
+        self.inverse_mass = None
         self.center_of_mass = None
-        self.inertia_tensor = None
+        self.inverse_inertia_tensor = None
+        self.inertia_orientation = None
         self.linear_velocity = None
         self.angular_velocity = None
         self.gravity_factor = None
@@ -268,9 +282,10 @@ class RigidBody(gltfProperty):
     def to_dict(self):
         result = super().to_dict()
         result["isKinematic"] = from_union([from_bool, from_none], self.is_kinematic)
-        result["mass"] = from_union([from_float, from_none], self.mass)
+        result["inverseMass"] = from_union([from_float, from_none], self.inverse_mass)
         result["centerOfMass"] = from_union([from_vec, from_none], self.center_of_mass)
-        result["inertiaTensor"] = from_union([lambda x: from_list(from_float, x), from_none], self.inertia_tensor)
+        result["inverseInertiaTensor"] = from_union([from_vec, from_none], self.inverse_inertia_tensor)
+        result["inertiaOrientation"] = from_union([from_quat, from_none], self.inertia_orientation)
         result["linearVelocity"] = from_union([from_vec, from_none], self.linear_velocity)
         result["angularVelocity"] = from_union([from_vec, from_none], self.angular_velocity)
         result["gravityFactor"] = from_union([from_float, from_none], self.gravity_factor)
@@ -283,9 +298,10 @@ class RigidBody(gltfProperty):
             return None
         result = RigidBody()
         result.is_kinematic = from_union([from_bool, from_none], obj.get('isKinematic'))
-        result.mass = from_union([from_float, from_none], obj.get('mass'))
+        result.inverse_mass = from_union([from_float, from_none], obj.get('inverseMass'))
         result.center_of_mass = from_union([lambda x: Vector(from_list(from_float, x)), from_none], obj.get('centerOfMass'))
-        result.inertia_tensor = from_union([lambda x: from_list(from_float, x), from_none], obj.get('inertiaTensor'))
+        result.inverse_inertia_tensor = from_union([lambda x: Vector(from_list(from_float, x)), from_none], obj.get('inverseInertiaTensor'))
+        result.inertia_orientation = from_union([lambda x: Quaternion(from_list(from_float, x)), from_none], obj.get('inertiaRotation'))
         result.linear_velocity = from_union([lambda x: Vector(from_list(from_float, x)), from_none], obj.get('linearVelocity'))
         result.angular_velocity = from_union([lambda x: Vector(from_list(from_float, x)), from_none], obj.get('angularVelocity'))
         result.gravity_factor = from_union([from_float, from_none], obj.get('gravityFactor'))
@@ -329,17 +345,22 @@ class JointLimit(gltfProperty):
         limit.max_limit = from_union([from_float, from_none], obj.get('max'))
         return limit
 
-class JointLimitSet:
-    def __init__(self, limits = list()):
-        self.joint_limits = limits
+class JointLimitSet(gltfProperty):
+    def __init__(self, limits = None):
+        super().__init__()
+        self.joint_limits = limits if limits != None else list()
 
-    def to_list(self):
-        return from_union([lambda x: from_list(lambda l: to_class(JointLimit, l), x), from_none], self.joint_limits)
+    def to_dict(self):
+        result = super().to_dict()
+        result['limits'] = from_union([lambda x: from_list(lambda l: to_class(JointLimit, l), x), from_none], self.joint_limits)
+        return result
 
     @staticmethod
-    def from_list(obj):
-        assert isinstance(obj, list)
-        return JointLimitSet(from_list(JointLimit.from_dict, obj))
+    def from_dict(obj):
+        assert isinstance(obj, dict)
+        result = JointLimitSet()
+        result.joint_limits = from_union([lambda x: from_list(JointLimit.from_dict, x), from_none], obj.get('limits'))
+        return result
 
 class Joint(gltfProperty):
     def __init__(self):
@@ -406,7 +427,7 @@ class RigidBodiesGlTFExtension:
         assert isinstance(obj, dict)
         result = RigidBodiesGlTFExtension()
         result.physics_materials = from_union([lambda x: from_list(PhysicsMaterial.from_dict, x), from_none], obj.get('physicsMaterials'))
-        result.physics_joint_limits = from_union([lambda x: from_list(JointLimitSet.from_list, x), from_none], obj.get('physicsJointLimits'))
+        result.physics_joint_limits = from_union([lambda x: from_list(JointLimitSet.from_dict, x), from_none], obj.get('physicsJointLimits'))
         return result
 
 
@@ -422,7 +443,7 @@ class MSFTPhysicsBodyAdditionalSettings(bpy.types.PropertyGroup):
 
     enable_inertia_override: bpy.props.BoolProperty(name='Override Inertia Tensor', default=False)
     inertia_major_axis: bpy.props.FloatVectorProperty(name='Inertia Major Axis', default=(1,1,1))
-    inertia_orientation: bpy.props.FloatVectorProperty(name='Inertia Orientaiton', subtype='EULER')
+    inertia_orientation: bpy.props.FloatVectorProperty(name='Inertia Orientation', subtype='EULER')
 
     enable_com_override: bpy.props.BoolProperty(name='Override Center of Mass', default=False)
     center_of_mass: bpy.props.FloatVectorProperty(name='Center of Mass', default=(0,0,0))
@@ -830,15 +851,21 @@ class glTF2ImportUserExtension:
 
         if nodeExt.rigid_body:
             blender_object.rigid_body.enabled = True
-            if nodeExt.rigid_body.mass != None:
-                blender_object.rigid_body.mass = nodeExt.rigid_body.mass
+            if nodeExt.rigid_body.inverse_mass != None:
+                blender_object.rigid_body.mass = 1.0 / nodeExt.rigid_body.mass
             if nodeExt.rigid_body.is_kinematic != None:
                 blender_object.rigid_body.is_kinematic = nodeExt.rigid_body.is_kinematic
             if nodeExt.rigid_body.center_of_mass != None:
                 blender_object.msft_physics_extra_props.center_of_mass = nodeExt.rigid_body.center_of_mass
                 blender_object.msft_physics_extra_props.enable_com_override = True
-            if nodeExt.rigid_body.inertia_tensor != None:
-                pass #TODO revisit
+            if nodeExt.rigid_body.inverse_inertia_tensor != None:
+                it = inv_vec(nodeExt.rigid_body.inverse_inertia_tensor)
+                blender_object.msft_physics_extra_props.inertia_major_axis = it
+                blender_object.msft_physics_extra_props.enable_inertia_override = True
+            if nodeExt.rigid_body.inertia_orientation != None:
+                io = nodeExt.rigid_body.inertia_orientation.to_euler()
+                blender_object.msft_physics_extra_props.inertia_orientation = io
+                blender_object.msft_physics_extra_props.enable_inertia_override = True
             if nodeExt.rigid_body.linear_velocity != None:
                 blender_object.msft_physics_extra_props.linear_velocity = nodeExt.rigid_body.linear_velocity
             if nodeExt.rigid_body.angular_velocity != None:
@@ -925,7 +952,7 @@ class glTF2ExportUserExtension:
                 required=extension_is_required)
             gltf2_plan.extensions[rigidBody_Extension_Name] = physicsRootExtension
 
-        if not collisionGeom_Extension_Name in gltf2_plan.extensions:
+        if not collisionGeom_Extension_Name in gltf2_plan.extensions and self.cgGltfExt.should_export():
             cgRootExtension = self.Extension(
                 name = collisionGeom_Extension_Name,
                 extension = self.cgGltfExt,
@@ -1000,7 +1027,7 @@ class glTF2ExportUserExtension:
 
                 if rb.kinematic:
                     rigid_body.is_kinematic = rb.kinematic
-                rigid_body.mass = rb.mass
+                rigid_body.inverse_mass = 1.0 / rb.mass
 
                 if extraProps.gravity_factor != 1.0:
                     rigid_body.gravity_factor = extraProps.gravity_factor
@@ -1016,12 +1043,8 @@ class glTF2ExportUserExtension:
                     rigid_body.center_of_mass = Vector(extraProps.center_of_mass)
 
                 if extraProps.enable_inertia_override:
-                    inertiaOrientation = extraProps.inertia_orientation.to_matrix()
-                    diag = self.__convert_swizzle_location(extraProps.inertia_major_axis, export_settings)
-                    inertiaOrientation.col[0] *= diag
-                    inertiaOrientation.col[1] *= diag
-                    inertiaOrientation.col[2] *= diag
-                    rigid_body.inertia_tensor = [x for col in inertiaOrientation for x in col]
+                    rigid_body.inverse_inertia_tensor = inv_vec(self.__convert_swizzle_scale(extraProps.inertia_major_axis, export_settings))
+                    rigid_body.inertia_orientation = Euler(blender_object.msft_physics_extra_props.inertia_orientation).to_quaternion()
 
                 extension_data.rigid_body = rigid_body
 
@@ -1053,11 +1076,12 @@ class glTF2ExportUserExtension:
                 # We'll just save all the joint objects we see and process them later.
                 self.blenderJointObjects.append(blender_object)
 
-            gltf2_object.extensions[rigidBody_Extension_Name] = self.Extension(
-                name=rigidBody_Extension_Name,
-                extension=extension_data.to_dict(),
-                required=extension_is_required
-            )
+            if blender_object.rigid_body != None or blender_object.rigid_body_constraint != None:
+                gltf2_object.extensions[rigidBody_Extension_Name] = self.Extension(
+                    name=rigidBody_Extension_Name,
+                    extension=extension_data.to_dict(),
+                    required=extension_is_required
+                )
 
     def _isPartOfCompound(self, node):
         if node.parent == None or node.parent.rigid_body == None:
@@ -1217,12 +1241,6 @@ class glTF2ExportUserExtension:
                     height = maxHeight * 2
                     radius = maxRadiusSquared ** 0.5
                     if node.rigid_body.collision_shape == 'CAPSULE':
-                        # (height, radius) describe a *cylinder* which totally encloses the mesh geometry
-                        # However, the Blender physics tools and visualization generate a capsule no larger than the mesh
-                        # This is not what I'd expect, as it seems inconsistent with other shapes (e.g. a convex hull
-                        # encloses the mesh) but for the sake of consistency with the Blender UI, we'll match their
-                        # behaviour.
-                        height = max(0, height - radius * 2)
                         collider.capsule = Collider.Capsule(height = height, radius = radius)
                     else:
                         collider.cylinder = Collider.Cylinder(height = height, radius = radius)
