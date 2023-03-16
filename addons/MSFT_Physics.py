@@ -1084,9 +1084,13 @@ class glTF2ExportUserExtension:
                 )
 
     def _isPartOfCompound(self, node):
-        if node.parent == None or node.parent.rigid_body == None:
-            return False
-        return node.parent.rigid_body.collision_shape == 'COMPOUND'
+        cur = node.parent;
+        while cur:
+            if cur.rigid_body != None:
+                if cur.rigid_body.collision_shape == 'COMPOUND':
+                    return True
+            cur = cur.parent
+        return False
 
     def _generateJointData(self, node, glNode, export_settings):
         """Converts the concrete joint data on `node` to a generic 6DOF representation"""
