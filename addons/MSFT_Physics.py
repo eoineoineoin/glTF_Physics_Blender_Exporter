@@ -1236,13 +1236,13 @@ class glTF2ExportUserExtension:
                 elif (node.rigid_body.collision_shape == 'CAPSULE' or
                         node.rigid_body.collision_shape == 'CYLINDER'):
                     capsuleAxis = Vector((0,0,1)) # Use blender's up axis, instead of glTF (and transform later)
-                    maxHeight = 0
+                    maxHalfHeight = 0
                     maxRadiusSquared = 0
                     for v in meshData.vertices:
-                        maxHeight = max(maxHeight, abs(v.co.dot(capsuleAxis)))
+                        maxHalfHeight = max(maxHalfHeight, abs(v.co.dot(capsuleAxis)))
                         radiusSquared = (v.co - capsuleAxis * v.co.dot(capsuleAxis)).length_squared
                         maxRadiusSquared = max(maxRadiusSquared, radiusSquared)
-                    height = maxHeight * 2
+                    height = maxHalfHeight * 2
                     radius = maxRadiusSquared ** 0.5
                     if node.rigid_body.collision_shape == 'CAPSULE':
                         collider.capsule = Collider.Capsule(height = height, radius = radius)
