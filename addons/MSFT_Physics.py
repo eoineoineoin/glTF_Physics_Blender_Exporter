@@ -316,15 +316,19 @@ class JointLimit(gltfProperty):
         self.max_limit = None
 
     @staticmethod
-    def Linear(axes):
+    def Linear(axes, minLimit = None, maxLimit = None):
         result = JointLimit()
         result.linear_axes = axes
+        result.min_limit = minLimit
+        result.max_limit = maxLimit
         return result
 
     @staticmethod
-    def Angular(axes):
+    def Angular(axes, minLimit = None, maxLimit = None):
         result = JointLimit()
         result.angular_axes = axes
+        result.min_limit = minLimit
+        result.max_limit = maxLimit
         return result
 
     def to_dict(self):
@@ -1106,15 +1110,15 @@ class glTF2ExportUserExtension:
 
         limitSet = JointLimitSet()
         if joint.type == 'FIXED':
-            limitSet.joint_limits.append(JointLimit.Linear([X, Y, Z]))
-            limitSet.joint_limits.append(JointLimit.Angular([X, Y, Z]))
+            limitSet.joint_limits.append(JointLimit.Linear([X, Y, Z], 0, 0))
+            limitSet.joint_limits.append(JointLimit.Angular([X, Y, Z], 0, 0))
         elif joint.type == 'POINT':
-            limitSet.joint_limits.append(JointLimit.Linear([X, Y, Z]))
+            limitSet.joint_limits.append(JointLimit.Linear([X, Y, Z], 0, 0))
         elif joint.type == 'HINGE':
-            limitSet.joint_limits.append(JointLimit.Linear([X, Y, Z]))
+            limitSet.joint_limits.append(JointLimit.Linear([X, Y, Z], 0, 0))
 
             # Blender always specifies hinge about Z
-            limitSet.joint_limits.append(JointLimit.Angular([X, Y]))
+            limitSet.joint_limits.append(JointLimit.Angular([X, Y], 0, 0))
 
             if joint.use_limit_ang_z:
                 angLimit = JointLimit.Angular([Z])
@@ -1122,10 +1126,10 @@ class glTF2ExportUserExtension:
                 angLimit.max_limit = joint.limit_ang_z_upper
                 limitSet.joint_limits.append(angLimit)
         elif joint.type == 'SLIDER':
-            limitSet.joint_limits.append(JointLimit.Angular([X, Y, Z]))
+            limitSet.joint_limits.append(JointLimit.Angular([X, Y, Z], 0, 0))
 
             # Blender always specifies slider limit along X
-            limitSet.joint_limits.append(JointLimit.Linear([Y, Z]))
+            limitSet.joint_limits.append(JointLimit.Linear([Y, Z], 0, 0))
 
             if joint.use_limit_lin_x:
                 linLimit = JointLimit.Linear([X])
@@ -1134,8 +1138,8 @@ class glTF2ExportUserExtension:
                 limitSet.joint_limits.append(linLimit)
         elif joint.type == 'PISTON':
             # Blender always specifies slider limit along/around X
-            limitSet.joint_limits.append(JointLimit.Angular([Y, Z]))
-            limitSet.joint_limits.append(JointLimit.Linear([Y, Z]))
+            limitSet.joint_limits.append(JointLimit.Angular([Y, Z], 0, 0))
+            limitSet.joint_limits.append(JointLimit.Linear([Y, Z], 0, 0))
 
             if joint.use_limit_lin_x:
                 linLimit = JointLimit.Linear([X])
@@ -1151,48 +1155,42 @@ class glTF2ExportUserExtension:
             # Appears that Blender always uses 1D constraints
             if joint.use_limit_lin_x:
                 linLimit = JointLimit.Linear([X])
-                if joint.limit_lin_x_lower != 0 or joint.limit_lin_x_upper != 0:
-                    linLimit.min_limit = joint.limit_lin_x_lower
-                    linLimit.max_limit = joint.limit_lin_x_upper
+                linLimit.min_limit = joint.limit_lin_x_lower
+                linLimit.max_limit = joint.limit_lin_x_upper
                 limitSet.joint_limits.append(linLimit)
             if joint.use_limit_lin_y:
                 linLimit = JointLimit.Linear([Y])
-                if joint.limit_lin_y_lower != 0 or joint.limit_lin_y_upper != 0:
-                    if export_settings[gltf2_blender_export_keys.YUP]:
-                        linLimit.min_limit = -joint.limit_lin_y_upper
-                        linLimit.max_limit = -joint.limit_lin_y_lower
-                    else:
-                        linLimit.min_limit = joint.limit_lin_y_lower
-                        linLimit.max_limit = joint.limit_lin_y_upper
+                if export_settings[gltf2_blender_export_keys.YUP]:
+                    linLimit.min_limit = -joint.limit_lin_y_upper
+                    linLimit.max_limit = -joint.limit_lin_y_lower
+                else:
+                    linLimit.min_limit = joint.limit_lin_y_lower
+                    linLimit.max_limit = joint.limit_lin_y_upper
                 limitSet.joint_limits.append(linLimit)
             if joint.use_limit_lin_z:
                 linLimit = JointLimit.Linear([Z])
-                if joint.limit_lin_z_lower != 0 or joint.limit_lin_z_upper != 0:
-                    linLimit.min_limit = joint.limit_lin_z_lower
-                    linLimit.max_limit = joint.limit_lin_z_upper
+                linLimit.min_limit = joint.limit_lin_z_lower
+                linLimit.max_limit = joint.limit_lin_z_upper
                 limitSet.joint_limits.append(linLimit)
 
             if joint.use_limit_ang_x:
                 angLimit = JointLimit.Angular([X])
-                if joint.limit_ang_x_lower != 0 or joint.limit_ang_x_upper != 0:
-                    angLimit.min_limit = joint.limit_ang_x_lower
-                    angLimit.max_limit = joint.limit_ang_x_upper
+                angLimit.min_limit = joint.limit_ang_x_lower
+                angLimit.max_limit = joint.limit_ang_x_upper
                 limitSet.joint_limits.append(angLimit)
             if joint.use_limit_ang_y:
                 angLimit = JointLimit.Angular([Y])
-                if joint.limit_ang_y_lower != 0 or joint.limit_ang_y_upper != 0:
-                    if export_settings[gltf2_blender_export_keys.YUP]:
-                        angLimit.min_limit = -joint.limit_ang_y_upper
-                        angLimit.max_limit = -joint.limit_ang_y_lower
-                    else:
-                        angLimit.min_limit = joint.limit_ang_y_lower
-                        angLimit.max_limit = joint.limit_ang_y_upper
+                if export_settings[gltf2_blender_export_keys.YUP]:
+                    angLimit.min_limit = -joint.limit_ang_y_upper
+                    angLimit.max_limit = -joint.limit_ang_y_lower
+                else:
+                    angLimit.min_limit = joint.limit_ang_y_lower
+                    angLimit.max_limit = joint.limit_ang_y_upper
                 limitSet.joint_limits.append(angLimit)
             if joint.use_limit_ang_z:
                 angLimit = JointLimit.Angular([Z])
-                if joint.limit_ang_z_lower != 0 or joint.limit_ang_z_upper != 0:
-                    angLimit.min_limit = joint.limit_ang_z_lower
-                    angLimit.max_limit = joint.limit_ang_z_upper
+                angLimit.min_limit = joint.limit_ang_z_lower
+                angLimit.max_limit = joint.limit_ang_z_upper
                 limitSet.joint_limits.append(angLimit)
 
         jointData.joint_limits = self.ChildOfRootExtension(
