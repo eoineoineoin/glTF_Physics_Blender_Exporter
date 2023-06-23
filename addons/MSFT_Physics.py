@@ -76,6 +76,7 @@ class gltfProperty():
 class Collider(gltfProperty):
     def __init__(self):
         super().__init__()
+        self.type = None
         self.collision_systems = None
         self.collide_with_systems = None
         self.not_collide_systems = None
@@ -88,6 +89,7 @@ class Collider(gltfProperty):
 
     def to_dict(self):
         result = super().to_dict()
+        result["type"] = from_union([from_str, from_none], self.type)
         result["collisionSystems"] = from_union([lambda x: from_list(from_str, x), from_none], self.collision_systems)
         result["collideWithSystems"] = from_union([lambda x: from_list(from_str, x), from_none], self.collide_with_systems)
         result["notCollideWithSystems"] = from_union([lambda x: from_list(from_str, x), from_none], self.not_collide_systems)
@@ -104,6 +106,7 @@ class Collider(gltfProperty):
     def from_dict(obj):
         assert isinstance(obj, dict)
         result = Collider()
+        result.type = from_union([from_str, from_none], obj.get('type'))
         result.collision_systems = from_union([lambda x: from_list(from_str, x), from_none], obj.get('collisionSystems'))
         result.collide_with_systems = from_union([lambda x: from_list(from_str, x), from_none], obj.get('collideWithSystems'))
         result.not_colide_systesm = from_union([lambda x: from_list(from_str, x), from_none], obj.get('notCollideWithSystems'))
@@ -1213,8 +1216,10 @@ class glTF2ExportUserExtension:
 
         if (node.rigid_body.collision_shape == 'CONE'
                 or node.rigid_body.collision_shape == 'CONVEX_HULL'):
+            collider.type = 'convex'
             collider.convex = Collider.Convex(glNode.mesh)
         elif node.rigid_body.collision_shape == 'MESH':
+            collider.type = 'trimesh'
             collider.trimesh = Collider.TriMesh(glNode.mesh)
         else:
             # If the shape is a geometric primitive, we may have to apply modifiers
@@ -1224,11 +1229,13 @@ class glTF2ExportUserExtension:
                     maxRR = 0
                     for v in meshData.vertices:
                         maxRR = max(maxRR, v.co.length_squared)
+                    collider.type = 'sphere'
                     collider.sphere = Collider.Sphere(radius = maxRR ** 0.5)
                 elif node.rigid_body.collision_shape == 'BOX':
                     maxHalfExtent = [0,0,0]
                     for v in meshData.vertices:
                         maxHalfExtent = [max(a,abs(b)) for a,b in zip(maxHalfExtent, v.co)]
+                    collider.type = 'box'
                     collider.box = Collider.Box(size = self.__convert_swizzle_scale(maxHalfExtent, export_settings) * 2)
                 #<TODO.eoin.Blender Cone shape feels underspecified? We need to do a proper calculation here
                 elif (node.rigid_body.collision_shape == 'CAPSULE' or
@@ -1243,8 +1250,10 @@ class glTF2ExportUserExtension:
                     height = maxHalfHeight * 2
                     radius = maxRadiusSquared ** 0.5
                     if node.rigid_body.collision_shape == 'CAPSULE':
-                        collider.capsule = Collider.Capsule(height = height, radius = radius)
+                        collider.type = 'capsule'
+                        collider.capsule = Collider.Capsule(height = height - radius * 2, radius = radius)
                     else:
+                        collider.type = 'cylinder'
                         collider.cylinder = Collider.Cylinder(height = height, radius = radius)
 
                     if not export_settings[gltf2_blender_export_keys.YUP]:
