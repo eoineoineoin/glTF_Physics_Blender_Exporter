@@ -56,12 +56,6 @@ def from_quat(x):
     assert isinstance(x, Quaternion)
     return from_list(from_float, list(x))
 
-def inv_vec(v):
-    """Utility to calculate the reciprocal of a vector [1/v_0, 1/v_1, ... 1/v_n]"""
-    assert isinstance(v, Vector)
-    return Vector([1.0 / x for x in v])
-
-
 class gltfProperty():
     def __init__(self):
         self.extensions = None
@@ -77,9 +71,6 @@ class Collider(gltfProperty):
     def __init__(self):
         super().__init__()
         self.type = None
-        self.collision_systems = None
-        self.collide_with_systems = None
-        self.not_collide_systems = None
         self.sphere = None
         self.box = None
         self.capsule = None
@@ -90,10 +81,6 @@ class Collider(gltfProperty):
     def to_dict(self):
         result = super().to_dict()
         result["type"] = from_union([from_str, from_none], self.type)
-        result["collisionSystems"] = from_union([lambda x: from_list(from_str, x), from_none], self.collision_systems)
-        result["collideWithSystems"] = from_union([lambda x: from_list(from_str, x), from_none], self.collide_with_systems)
-        result["notCollideWithSystems"] = from_union([lambda x: from_list(from_str, x), from_none], self.not_collide_systems)
-
         result["sphere"] = from_union([lambda x: to_class(Collider.Sphere, x), from_none], self.sphere)
         result["box"] = from_union([lambda x: to_class(Collider.Box, x), from_none], self.box)
         result["capsule"] = from_union([lambda x: to_class(Collider.Capsule, x), from_none], self.capsule)
@@ -107,10 +94,6 @@ class Collider(gltfProperty):
         assert isinstance(obj, dict)
         result = Collider()
         result.type = from_union([from_str, from_none], obj.get('type'))
-        result.collision_systems = from_union([lambda x: from_list(from_str, x), from_none], obj.get('collisionSystems'))
-        result.collide_with_systems = from_union([lambda x: from_list(from_str, x), from_none], obj.get('collideWithSystems'))
-        result.not_colide_systesm = from_union([lambda x: from_list(from_str, x), from_none], obj.get('notCollideWithSystems'))
-
         result.sphere = from_union([Collider.Sphere.from_dict, from_none], obj.get('sphere'))
         result.box = from_union([Collider.Box.from_dict, from_none], obj.get('box'))
         result.capsule = from_union([Collider.Capsule.from_dict, from_none], obj.get('capsule'))
@@ -270,13 +253,36 @@ class PhysicsMaterial(gltfProperty):
         result.restitution_combine= from_union([from_str, from_none], obj.get('restitutionCombine'))
         return result
 
-class RigidBody(gltfProperty):
+class CollisionFilter(gltfProperty):
+    def __init__(self):
+        super().__init__()
+        self.collision_systems = None
+        self.collide_with_systems = None
+        self.not_collide_systems = None
+
+    def to_dict(self):
+        result = super().to_dict()
+        result["collisionSystems"] = from_union([lambda x: from_list(from_str, x), from_none], self.collision_systems)
+        result["collideWithSystems"] = from_union([lambda x: from_list(from_str, x), from_none], self.collide_with_systems)
+        result["notCollideWithSystems"] = from_union([lambda x: from_list(from_str, x), from_none], self.not_collide_systems)
+        return result
+
+    @staticmethod
+    def from_dict(obj):
+        assert isinstance(obj, dict)
+        result = CollisionFilter()
+        result.collision_systems = from_union([lambda x: from_list(from_str, x), from_none], obj.get('collisionSystems'))
+        result.collide_with_systems = from_union([lambda x: from_list(from_str, x), from_none], obj.get('collideWithSystems'))
+        result.not_colide_systesm = from_union([lambda x: from_list(from_str, x), from_none], obj.get('notCollideWithSystems'))
+        return result
+
+class RigidMotion(gltfProperty):
     def __init__(self):
         super().__init__()
         self.is_kinematic = None
-        self.inverse_mass = None
+        self.mass = None
         self.center_of_mass = None
-        self.inverse_inertia_tensor = None
+        self.inertia_diagonal = None
         self.inertia_orientation = None
         self.linear_velocity = None
         self.angular_velocity = None
@@ -285,9 +291,9 @@ class RigidBody(gltfProperty):
     def to_dict(self):
         result = super().to_dict()
         result["isKinematic"] = from_union([from_bool, from_none], self.is_kinematic)
-        result["inverseMass"] = from_union([from_float, from_none], self.inverse_mass)
+        result["mass"] = from_union([from_float, from_none], self.mass)
         result["centerOfMass"] = from_union([from_vec, from_none], self.center_of_mass)
-        result["inverseInertiaTensor"] = from_union([from_vec, from_none], self.inverse_inertia_tensor)
+        result["inertiaDiagonal"] = from_union([from_vec, from_none], self.inertia_diagonal)
         result["inertiaOrientation"] = from_union([from_quat, from_none], self.inertia_orientation)
         result["linearVelocity"] = from_union([from_vec, from_none], self.linear_velocity)
         result["angularVelocity"] = from_union([from_vec, from_none], self.angular_velocity)
@@ -299,11 +305,11 @@ class RigidBody(gltfProperty):
         assert isinstance(obj, dict)
         if obj == None:
             return None
-        result = RigidBody()
+        result = RigidMotion()
         result.is_kinematic = from_union([from_bool, from_none], obj.get('isKinematic'))
-        result.inverse_mass = from_union([from_float, from_none], obj.get('inverseMass'))
+        result.mass = from_union([from_float, from_none], obj.get('mass'))
         result.center_of_mass = from_union([lambda x: Vector(from_list(from_float, x)), from_none], obj.get('centerOfMass'))
-        result.inverse_inertia_tensor = from_union([lambda x: Vector(from_list(from_float, x)), from_none], obj.get('inverseInertiaTensor'))
+        result.inertia_diagonal = from_union([lambda x: Vector(from_list(from_float, x)), from_none], obj.get('inertiaDiagonal'))
         result.inertia_orientation = from_union([lambda x: Quaternion(from_list(from_float, x)), from_none], obj.get('inertiaRotation'))
         result.linear_velocity = from_union([lambda x: Vector(from_list(from_float, x)), from_none], obj.get('linearVelocity'))
         result.angular_velocity = from_union([lambda x: Vector(from_list(from_float, x)), from_none], obj.get('angularVelocity'))
@@ -398,16 +404,17 @@ class Joint(gltfProperty):
 class RigidBodiesNodeExtension(gltfProperty):
     def __init__(self):
         super().__init__()
-        self.rigid_body = None
+        self.rigid_motion = None
         self.collider = None
+        self.trigger = None
         self.physics_material = None
         self.joint = None
 
     def to_dict(self):
         result = super().to_dict()
-        result["rigidBody"] = from_union([lambda x: to_class(RigidBody, x), from_none], self.rigid_body)
-        result["collider"] = self.collider
-        result["physicsMaterial"] = self.physics_material
+        result["motion"] = from_union([lambda x: to_class(RigidMotion, x), from_none], self.rigid_motion)
+        result["collider"] = from_union([lambda x: to_class(RigidBodiesNodeExtension.Collider, x), from_none], self.collider)
+        result["trigger"] = from_union([lambda x: to_class(RigidBodiesNodeExtension.Trigger, x), from_none], self.trigger)
         result["joint"] = from_union([lambda x: to_class(Joint, x), from_none], self.joint)
         return result
 
@@ -415,19 +422,64 @@ class RigidBodiesNodeExtension(gltfProperty):
     def from_dict(obj):
         assert isinstance(obj, dict)
         result = RigidBodiesNodeExtension() #<todo.eoin Need to handle extensions/extras in all from_dict() methods
-        result.rigid_body = from_union([RigidBody.from_dict, from_none], obj.get("rigidBody"))
-        result.collider = from_union([from_int, from_none], obj.get('collider'))
-        result.physicsMaterial = from_union([from_int, from_none], obj.get('physicsMaterial'))
+        result.rigid_motion = from_union([RigidMotion.from_dict, from_none], obj.get("motion"))
+        result.collider = from_union([RigidBodiesNodeExtension.Collider.from_dict, from_none], obj.get("collider"))
+        result.trigger = from_union([RigidBodiesNodeExtension.Trigger.from_dict, from_none], obj.get("trigger"))
         result.joint = from_union([Joint.from_dict, from_none], obj.get("joint"))
         return result
+
+    class Collider(gltfProperty):
+        def __init__(self):
+            super().__init__()
+            self.collider = None
+            self.physicsMaterial = None
+            self.collision_filter = None
+
+        def to_dict(self):
+            result = super().to_dict()
+            result["collider"] = self.collider
+            result["physicsMaterial"] = self.physics_material
+            result["collisionFilter"] = self.collision_filter
+            return result
+
+        @staticmethod
+        def from_dict(obj):
+            assert isinstance(obj, dict)
+            result = Collider() #<todo.eoin Need to handle extensions/extras in all from_dict() methods
+            result.collider = from_union([from_int, from_none], obj.get('collider'))
+            result.physics_material = from_union([from_int, from_none], obj.get('physicsMaterial'))
+            result.collision_filter = from_union([from_int, from_none], obj.get('collisionFilter'))
+            return result
+
+    class Trigger(gltfProperty):
+        def __init__(self):
+            super().__init__()
+            self.collider = None
+            self.collision_filter = None
+
+        def to_dict(self):
+            result = super().to_dict()
+            result["collider"] = self.collider
+            result["collisionFilter"] = self.collision_filter
+            return result
+
+        @staticmethod
+        def from_dict(obj):
+            assert isinstance(obj, dict)
+            result = Trigger() #<todo.eoin Need to handle extensions/extras in all from_dict() methods
+            result.collider = from_union([from_int, from_none], obj.get('collider'))
+            result.collision_filter = from_union([from_int, from_none], obj.get('collisionFilter'))
+            return result
+
 
 class RigidBodiesGlTFExtension:
     def __init__(self):
         self.physics_materials = []
         self.physics_joint_limits = []
+        self.collision_filters = []
 
     def should_export(self):
-        return len(self.physics_materials) > 0 or len(self.physics_joint_limits) > 0
+        return len(self.physics_materials) > 0 or len(self.physics_joint_limits) > 0 or len(self.collision_filters) > 0
 
     @staticmethod
     def from_dict(obj):
@@ -435,6 +487,7 @@ class RigidBodiesGlTFExtension:
         result = RigidBodiesGlTFExtension()
         result.physics_materials = from_union([lambda x: from_list(PhysicsMaterial.from_dict, x), from_none], obj.get('physicsMaterials'))
         result.physics_joint_limits = from_union([lambda x: from_list(JointLimitSet.from_dict, x), from_none], obj.get('physicsJointLimits'))
+        result.collision_filters = from_union([lambda x: from_list(CollisionFilter.from_dict, x), from_none], obj.get('collisionFilters'))
         return result
 
 
@@ -448,6 +501,7 @@ class MSFTPhysicsBodyAdditionalSettings(bpy.types.PropertyGroup):
     linear_velocity: bpy.props.FloatVectorProperty(name='Linear Velocity', default=(0,0,0))
     angular_velocity: bpy.props.FloatVectorProperty(name='Angular Velocity', default=(0,0,0))
 
+    infinite_mass: bpy.props.BoolProperty(name='Infinite Mass', default=False)
     enable_inertia_override: bpy.props.BoolProperty(name='Override Inertia Tensor', default=False)
     inertia_major_axis: bpy.props.FloatVectorProperty(name='Inertia Major Axis', default=(1,1,1))
     inertia_orientation: bpy.props.FloatVectorProperty(name='Inertia Orientation', subtype='EULER')
@@ -619,6 +673,8 @@ class MSFTPhysicsSettingsPanel(bpy.types.Panel):
         row = layout.row()
         row.prop(obj.msft_physics_extra_props, 'angular_velocity')
 
+        row = layout.row()
+        row.prop(obj.msft_physics_extra_props, 'infinite_mass')
         row = layout.row()
         row.prop(obj.msft_physics_extra_props, 'enable_inertia_override')
         row = layout.row()
@@ -811,7 +867,7 @@ class glTF2ImportUserExtension:
 
         nodeExt = RigidBodiesNodeExtension.from_dict(ext)
 
-        if nodeExt.collider != None or nodeExt.rigid_body != None:
+        if nodeExt.collider != None or nodeExt.trigger != None or nodeExt.rigid_motion != None:
             if not blender_object.rigid_body:
                 #<todo.eoin This is the only way I've found to add a rigid body to a node
                 # There might be a cleaner way.
@@ -822,8 +878,14 @@ class glTF2ImportUserExtension:
             blender_object.rigid_body.enabled = False # Static by default
             blender_object.rigid_body.collision_shape = 'COMPOUND'
 
+            colliderIdx = -1
+            if nodeExt.trigger != None:
+                colliderIdx = nodeExt.trigger.collider
             if nodeExt.collider != None:
-                collider = self.cgExt.colliders[nodeExt.collider]
+                colliderIdx = nodeExt.collider.collider
+
+            if colliderIdx != -1:
+                collider = self.cgExt.colliders[colliderIdx]
                 if collider.sphere != None:
                     blender_object.rigid_body.collision_shape = 'SPHERE'
                 if collider.box != None:
@@ -845,8 +907,8 @@ class glTF2ImportUserExtension:
                 #XXX collision system
 
 
-            if nodeExt.physicsMaterial != None:
-                mat = self.rbExt.physics_materials[nodeExt.physicsMaterial]
+            if nodeExt.collider != None and nodeExt.collider.physicsMaterial != None:
+                mat = self.rbExt.physics_materials[nodeExt.collider.physicsMaterial]
                 if mat.dynamic_friction != None:
                     blender_object.rigid_body.friction = mat.dynamic_friction
                 if mat.restitution != None:
@@ -856,29 +918,31 @@ class glTF2ImportUserExtension:
                 if mat.restitution_combine != None:
                     blender_object.msft_physics_extra_props.restitution_combine = mat.restitution_combine
 
-        if nodeExt.rigid_body:
+        if nodeExt.rigid_motion:
             blender_object.rigid_body.enabled = True
-            if nodeExt.rigid_body.inverse_mass != None:
-                blender_object.rigid_body.mass = 1.0 / nodeExt.rigid_body.mass
-            if nodeExt.rigid_body.is_kinematic != None:
-                blender_object.rigid_body.is_kinematic = nodeExt.rigid_body.is_kinematic
-            if nodeExt.rigid_body.center_of_mass != None:
-                blender_object.msft_physics_extra_props.center_of_mass = nodeExt.rigid_body.center_of_mass
+            if nodeExt.rigid_motion.mass != None:
+                blender_object.rigid_body.mass = nodeExt.rigid_motion.mass
+                if nodeExt.rigid_motion.mass == 0:
+                    blender_object.msft_physics_extra_props.infinite_mass = True
+            if nodeExt.rigid_motion.is_kinematic != None:
+                blender_object.rigid_body.is_kinematic = nodeExt.rigid_motion.is_kinematic
+            if nodeExt.rigid_motion.center_of_mass != None:
+                blender_object.msft_physics_extra_props.center_of_mass = nodeExt.rigid_motion.center_of_mass
                 blender_object.msft_physics_extra_props.enable_com_override = True
-            if nodeExt.rigid_body.inverse_inertia_tensor != None:
-                it = inv_vec(nodeExt.rigid_body.inverse_inertia_tensor)
+            if nodeExt.rigid_motion.inertia_diagonal != None:
+                it = nodeExt.rigid_motion.inertia_diagonal
                 blender_object.msft_physics_extra_props.inertia_major_axis = it
                 blender_object.msft_physics_extra_props.enable_inertia_override = True
-            if nodeExt.rigid_body.inertia_orientation != None:
-                io = nodeExt.rigid_body.inertia_orientation.to_euler()
+            if nodeExt.rigid_motion.inertia_orientation != None:
+                io = nodeExt.rigid_motion.inertia_orientation.to_euler()
                 blender_object.msft_physics_extra_props.inertia_orientation = io
                 blender_object.msft_physics_extra_props.enable_inertia_override = True
-            if nodeExt.rigid_body.linear_velocity != None:
-                blender_object.msft_physics_extra_props.linear_velocity = nodeExt.rigid_body.linear_velocity
-            if nodeExt.rigid_body.angular_velocity != None:
-                blender_object.msft_physics_extra_props.angular_velocity = nodeExt.rigid_body.angular_velocity
-            if nodeExt.rigid_body.gravity_factor != None:
-                blender_object.msft_physics_extra_props.gravity_factor = nodeExt.rigid_body.gravity_factor
+            if nodeExt.rigid_motion.linear_velocity != None:
+                blender_object.msft_physics_extra_props.linear_velocity = nodeExt.rigid_motion.linear_velocity
+            if nodeExt.rigid_motion.angular_velocity != None:
+                blender_object.msft_physics_extra_props.angular_velocity = nodeExt.rigid_motion.angular_velocity
+            if nodeExt.rigid_motion.gravity_factor != None:
+                blender_object.msft_physics_extra_props.gravity_factor = nodeExt.rigid_motion.gravity_factor
 
         if nodeExt.joint:
             #<todo.eoin Same as adding rigid body; might be a cleaner way.
@@ -1030,53 +1094,68 @@ class glTF2ExportUserExtension:
                 rb = blender_object.rigid_body
                 extraProps = blender_object.msft_physics_extra_props
 
-                rigid_body = RigidBody()
+                rigid_motion = RigidMotion()
 
                 if rb.kinematic:
-                    rigid_body.is_kinematic = rb.kinematic
-                rigid_body.inverse_mass = 1.0 / rb.mass
+                    rigid_motion.is_kinematic = rb.kinematic
+
+                rigid_motion.mass = rb.mass
+                if extraProps.infinite_mass:
+                    rigid_motion.mass = 0
 
                 if extraProps.gravity_factor != 1.0:
-                    rigid_body.gravity_factor = extraProps.gravity_factor
+                    rigid_motion.gravity_factor = extraProps.gravity_factor
 
                 lv = self.__convert_swizzle_location(Vector(extraProps.linear_velocity), export_settings)
                 if lv.length_squared != 0:
-                    rigid_body.linear_velocity = lv
+                    rigid_motion.linear_velocity = lv
                 av = self.__convert_swizzle_location(Vector(extraProps.angular_velocity), export_settings)
                 if av.length_squared != 0:
-                    rigid_body.angular_velocity = av
+                    rigid_motion.angular_velocity = av
 
                 if extraProps.enable_com_override:
-                    rigid_body.center_of_mass = Vector(extraProps.center_of_mass)
+                    rigid_motion.center_of_mass = self.__convert_swizzle_location(Vector(extraProps.center_of_mass), export_settings)
 
                 if extraProps.enable_inertia_override:
-                    rigid_body.inverse_inertia_tensor = inv_vec(self.__convert_swizzle_scale(extraProps.inertia_major_axis, export_settings))
-                    rigid_body.inertia_orientation = Euler(blender_object.msft_physics_extra_props.inertia_orientation).to_quaternion()
+                    rigid_motion.inertia_diagonal = self.__convert_swizzle_scale(extraProps.inertia_major_axis, export_settings)
+                    rigid_motion.inertia_orientation = Euler(blender_object.msft_physics_extra_props.inertia_orientation).to_quaternion()
 
-                extension_data.rigid_body = rigid_body
+                extension_data.rigid_motion = rigid_motion
 
             if blender_object.rigid_body:
                 collider_data = self._generateColliderData(blender_object, gltf2_object, export_settings)
                 if collider_data:
-                    extension_data.collider = self.ChildOfRootExtension(name = collisionGeom_Extension_Name,
-                                                                        path = ['colliders'], required = extension_is_required,
-                                                                        extension = collider_data.to_dict())
+                    collider_obj = self.ChildOfRootExtension(name = collisionGeom_Extension_Name,
+                                                             path = ['colliders'], required = extension_is_required,
+                                                             extension = collider_data.to_dict())
+                    filter_data = self._generateFilterData(blender_object)
+                    filter_obj = self.ChildOfRootExtension(name = rigidBody_Extension_Name,
+                                                           path = ['collisionFilters'], required = extension_is_required,
+                                                           extension = filter_data.to_dict())
 
-                extraProps = blender_object.msft_physics_extra_props
-                if not extraProps.is_trigger:
-                    mat = PhysicsMaterial()
-                    mat.static_friction = blender_object.rigid_body.friction
-                    mat.dynamic_friction = blender_object.rigid_body.friction
-                    mat.restitution = blender_object.rigid_body.restitution
+                    extraProps = blender_object.msft_physics_extra_props
+                    if extraProps.is_trigger:
+                        extension_data.trigger = RigidBodiesNodeExtension.Trigger()
+                        extension_data.trigger.collider = collider_obj
+                        extension_data.trigger.collision_filter = filter_obj
+                    else:
+                        extension_data.collider = RigidBodiesNodeExtension.Collider()
+                        extension_data.collider.collider = collider_obj
+                        extension_data.collider.collision_filter = filter_obj
 
-                    if extraProps.friction_combine != physics_material_combine_types[0][0]:
-                        mat.friction_combine = extraProps.friction_combine
-                    if extraProps.restitution_combine != physics_material_combine_types[0][0]:
-                        mat.restitution_combine = extraProps.restitution_combine
+                        mat = PhysicsMaterial()
+                        mat.static_friction = blender_object.rigid_body.friction
+                        mat.dynamic_friction = blender_object.rigid_body.friction
+                        mat.restitution = blender_object.rigid_body.restitution
 
-                    extension_data.physics_material = self.ChildOfRootExtension(
-                            name = rigidBody_Extension_Name, path = ['physicsMaterials'],
-                            extension = mat.to_dict(), required = extension_is_required)
+                        if extraProps.friction_combine != physics_material_combine_types[0][0]:
+                            mat.friction_combine = extraProps.friction_combine
+                        if extraProps.restitution_combine != physics_material_combine_types[0][0]:
+                            mat.restitution_combine = extraProps.restitution_combine
+
+                        extension_data.collider.physics_material = self.ChildOfRootExtension(
+                                name = rigidBody_Extension_Name, path = ['physicsMaterials'],
+                                extension = mat.to_dict(), required = extension_is_required)
 
             if blender_object.rigid_body_constraint:
                 # Because joints refer to another node in the scene, which may not be processed yet,
@@ -1201,18 +1280,21 @@ class glTF2ExportUserExtension:
                             extension = limitSet, required = extension_is_required)
         return jointData
 
-    def _generateColliderData(self, node, glNode, export_settings):
-        if node.rigid_body == None or node.rigid_body.collision_shape == 'COMPOUND':
-            return None
-        collider = Collider()
-
+    def _generateFilterData(self, node):
         # Blender's native collision filtering has less functionality than the spec enables:
         #    * Children of COMPOUND_PARENT don't have a UI to configure filtering
         #    * An objects' "membership" is always equal to it's "collides with"
         #    * Seems there's no "user friendly" names
         collisionSystems = ["System_%i" % i for (i,enabled) in enumerate(node.rigid_body.collision_collections) if enabled]
-        collider.collision_systems = collisionSystems
-        collider.collide_with_systems = collisionSystems
+        result = CollisionFilter()
+        result.collision_systems = collisionSystems
+        result.collide_with_systems = collisionSystems
+        return result
+
+    def _generateColliderData(self, node, glNode, export_settings):
+        if node.rigid_body == None or node.rigid_body.collision_shape == 'COMPOUND':
+            return None
+        collider = Collider()
 
         if (node.rigid_body.collision_shape == 'CONE'
                 or node.rigid_body.collision_shape == 'CONVEX_HULL'):
