@@ -1,6 +1,5 @@
 import bpy
 import gpu
-from io_scene_gltf2.blender.exp import gltf2_blender_export_keys
 from io_scene_gltf2.io.com.gltf2_io import Node, Mesh
 from gpu_extras.batch import batch_for_shader
 from mathutils import Matrix, Quaternion, Vector, Euler
@@ -11,10 +10,10 @@ from io_scene_gltf2.io.com.gltf2_io import from_str, from_list, from_bool, from_
 from io_scene_gltf2.io.com.gltf2_io import to_float, to_class
 
 bl_info = {
-    'name': 'MSFT_Physics',
+    'name': 'MSFT_rigid_bodies',
     'category': 'Import-Export',
-    'version': (0, 0, 1),
-    'blender': (3, 3, 0),
+    'version': (0, 0, 2),
+    'blender': (3, 6, 0),
     'location': 'File > Export > glTF 2.0',
     'description': 'Extension for adding rigid body information to exported glTF file',
     'tracker_url': 'https://github.com/eoineoineoin/glTF_Physics_Blender_Exporter/issues',
@@ -137,15 +136,17 @@ class Collider(gltfProperty):
             return Collider.Box(size)
 
     class Capsule(gltfProperty):
-        def __init__(self, height = 0.5, radius = 0.25):
+        def __init__(self, height = 0.5, radiusBottom = 0.25, radiusTop = 0.25):
             super().__init__()
             self.height = height
-            self.radius = radius
+            self.radiusBottom = radiusBottom
+            self.radiusTop = radiusTop
 
         def to_dict(self):
             result = super().to_dict()
             result["height"] = from_union([from_float, from_none], self.height)
-            result["radius"] = from_union([from_float, from_none], self.radius)
+            result["radiusBottom"] = from_union([from_float, from_none], self.radiusBottom)
+            result["radiusTop"] = from_union([from_float, from_none], self.radiusTop)
             return result
 
         @staticmethod
@@ -153,19 +154,22 @@ class Collider(gltfProperty):
             assert isinstance(obj, dict)
             if obj == None: return None
             height = from_union([from_float, from_none], obj.get('height'))
-            radius = from_union([from_float, from_none], obj.get('radius'))
-            return Collider.Capsule(height, radius)
+            radiusBottom = from_union([from_float, from_none], obj.get('radiusBottom'))
+            radiusTop = from_union([from_float, from_none], obj.get('radiusTop'))
+            return Collider.Capsule(height, radiusBottom, radiusTop)
 
     class Cylinder(gltfProperty):
-        def __init__(self, height = 0.5, radius = 0.25):
+        def __init__(self, height = 0.5, radiusBottom = 0.25, radiusTop = 0.25):
             super().__init__()
             self.height = height
-            self.radius = radius
+            self.radiusBottom = radiusBottom
+            self.radiusTop = radiusTop
 
         def to_dict(self):
             result = super().to_dict()
             result["height"] = from_union([from_float, from_none], self.height)
-            result["radius"] = from_union([from_float, from_none], self.radius)
+            result["radiusBottom"] = from_union([from_float, from_none], self.radiusBottom)
+            result["radiusTop"] = from_union([from_float, from_none], self.radiusTop)
             return result
 
         @staticmethod
@@ -173,8 +177,9 @@ class Collider(gltfProperty):
             assert isinstance(obj, dict)
             if obj == None: return None
             height = from_union([from_float, from_none], obj.get('height'))
-            radius = from_union([from_float, from_none], obj.get('radius'))
-            return Collider.Cylinder(height, radius)
+            radiusBottom = from_union([from_float, from_none], obj.get('radiusBottom'))
+            radiusTop = from_union([from_float, from_none], obj.get('radiusTop'))
+            return Collider.Cylinder(height, radiusBottom, radiusTop)
 
     class Convex(gltfProperty):
         def __init__(self, mesh):
@@ -432,7 +437,7 @@ class RigidBodiesNodeExtension(gltfProperty):
         def __init__(self):
             super().__init__()
             self.collider = None
-            self.physicsMaterial = None
+            self.physics_material = None
             self.collision_filter = None
 
         def to_dict(self):
@@ -512,6 +517,13 @@ class MSFTPhysicsBodyAdditionalSettings(bpy.types.PropertyGroup):
     friction_combine: bpy.props.EnumProperty(name='Friction Combine mode', items=physics_material_combine_types)
     restitution_combine: bpy.props.EnumProperty(name='Restitution Combine mode', items=physics_material_combine_types)
 
+    # We want some extra properties to control capsule/cylinder/cone shapes.
+    cone_capsule_override: bpy.props.BoolProperty(name='Override shape params', default=False)
+    cone_capsule_radius_bottom: bpy.props.FloatProperty(name='Radius Bottom', default=1.0, min=0)
+    cone_capsule_radius_top: bpy.props.FloatProperty(name='Radius Top', default=1.0, min=0)
+    cone_capsule_height: bpy.props.FloatProperty(name='Height', default=1.0, min=0)
+
+
 class MSFTPhysicsExporterProperties(bpy.types.PropertyGroup):
     enabled: bpy.props.BoolProperty(
         name=bl_info['name'],
@@ -549,6 +561,72 @@ class MSFTPhysicsSettingsViewportRenderHelper:
 
         if bpy.context.scene.msft_physics_scene_viewer_props.draw_mass_props:
             self.draw_mass_props(obj)
+
+        if obj.rigid_body.collision_shape in ('CAPSULE', 'CYLINDER', 'CONE'):
+            if obj.msft_physics_extra_props.cone_capsule_override:
+                self.draw_custom_shape(obj)
+
+    def draw_custom_shape(self, obj):
+        ep = obj.msft_physics_extra_props
+        if obj.rigid_body.collision_shape == 'CAPSULE':
+            numSegments = 40
+            outlinePoints = []
+
+            centers = [Vector((0, 0, -ep.cone_capsule_height * 0.5)),
+                       Vector((0, 0, ep.cone_capsule_height * 0.5))]
+            cutoff = 0 # Remains zero in degenerate case
+            maxR = max(ep.cone_capsule_radius_bottom, ep.cone_capsule_radius_top)
+            minR = min(ep.cone_capsule_radius_bottom, ep.cone_capsule_radius_top)
+            scaleZ = 1 if ep.cone_capsule_radius_bottom > ep.cone_capsule_radius_top else -1
+
+            if ep.cone_capsule_radius_bottom != ep.cone_capsule_radius_top and ep.cone_capsule_height > 0:
+                r = maxR - minR
+                px = r * r / ep.cone_capsule_height
+                v = px * ep.cone_capsule_height - px * px
+                if v > 0:
+                    py = (px * ep.cone_capsule_height - px * px) ** 0.5
+                    cutoff = math.atan(py / -px)
+            elif ep.cone_capsule_radius_bottom == ep.cone_capsule_radius_top:
+                cutoff = math.pi * -0.5
+
+            for i in range(numSegments):
+                a = 2 * i * math.pi / (numSegments - 1) - math.pi
+                onCircle = Vector((math.sin(a), 0, math.cos(a)))
+                if a < cutoff or a > -cutoff:
+                    onCapsule = onCircle * maxR + centers[0]
+                else:
+                    onCapsule = onCircle * minR + centers[1]
+                onCapsule.z *= scaleZ
+                outlinePoints.append(onCapsule)
+                outlinePoints.append(onCapsule)
+
+            # Also rotate these points a quarter turn around the capsule axis
+            # to match how capsules with a single radius are displayed
+            outlinePoints.extend([Vector((0, q.x, q.z)) for q in outlinePoints])
+            outlinePoints.insert(0, outlinePoints[0])
+
+        if obj.rigid_body.collision_shape in ('CYLINDER', 'CONE'):
+            numAxialSegments = 15
+            outlinePoints = [Vector((0, ep.cone_capsule_radius_bottom, -ep.cone_capsule_height * 0.5)),
+                             Vector((0, ep.cone_capsule_radius_top, ep.cone_capsule_height * 0.5))]
+            for i in range(1, numAxialSegments):
+                a = 2 * i * math.pi / (numAxialSegments - 1)
+                p = Vector((math.sin(a), math.cos(a), 0))
+                pBottom = p * ep.cone_capsule_radius_bottom - Vector((0,0, ep.cone_capsule_height * 0.5))
+                pTop = p * ep.cone_capsule_radius_top + Vector((0,0, ep.cone_capsule_height * 0.5))
+
+                prevBottom = outlinePoints[-2]
+                prevTop = outlinePoints[-1]
+                outlinePoints.extend([prevBottom, pBottom, prevTop, pTop, pBottom, pTop])
+
+        # Now apply the object's transform (surely we don't have to bake this
+        # into the points, and can just supply a uniform to the shader?)
+        for i in range(len(outlinePoints)):
+            outlinePoints[i] = obj.matrix_world @ outlinePoints[i]
+
+        batch = batch_for_shader(self.shader, 'LINES', {"pos": outlinePoints})
+        self.shader.uniform_float("color", (0, 0, 0, 1))
+        batch.draw(self.shader)
 
     def draw_velocity(self, obj):
         linVel = Vector(obj.msft_physics_extra_props.linear_velocity)
@@ -664,6 +742,17 @@ class MSFTPhysicsSettingsPanel(bpy.types.Panel):
 
         #todo.eoin This feels a little different to Blender's usual UI.
         # Figure out how to add nice boxes/expanding headers/margins. (Seems to be nested Panels?)
+
+        # Some extra shape parameterizations
+        if context.object.rigid_body.collision_shape in ('CAPSULE', 'CYLINDER', 'CONE'):
+            # It would be nice to have a "intitialize from exising mesh" button here
+            row = layout.row()
+            row.prop(obj.msft_physics_extra_props, 'cone_capsule_override')
+            row = layout.row()
+            row.prop(obj.msft_physics_extra_props, 'cone_capsule_radius_bottom')
+            row.prop(obj.msft_physics_extra_props, 'cone_capsule_height')
+            row.prop(obj.msft_physics_extra_props, 'cone_capsule_radius_top')
+
         row = layout.row()
         row.prop(obj.msft_physics_extra_props, 'is_trigger')
         row = layout.row()
@@ -894,8 +983,19 @@ class glTF2ImportUserExtension:
                 #<todo.eoin Might need to undo node transform for these?
                 if collider.capsule != None:
                     blender_object.rigid_body.collision_shape = 'CAPSULE'
+                    ep = blender_object.msft_physics_extra_props
+                    ep.cone_capsule_radius_bottom = collider.capsule.radiusBottom
+                    ep.cone_capsule_radius_top = collider.capsule.radiusTop
+                    ep.cone_capsule_height = collider.capsule.height
+                    ep.cone_capsule_override = collider.capsule.radiusBottom != collider.capsule.radiusTop
                 if collider.cylinder != None:
                     blender_object.rigid_body.collision_shape = 'CYLINDER'
+                    ep.cone_capsule_radius_bottom = collider.cylinder.radiusBottom
+                    ep.cone_capsule_radius_top = collider.cylinder.radiusTop
+                    ep.cone_capsule_height = collider.cylinder.height
+                    ep.cone_capsule_override = collider.cylinder.radiusBottom != collider.cylinder.radiusTop
+                    if collider.cylinder.radiusTop == 0:
+                        blender_object.rigid_body.collision_shape = 'CONE'
 
                 #<todo.eoin Figure out if we can hook in a different mesh
                 # other than the one associated with this node
@@ -904,11 +1004,11 @@ class glTF2ImportUserExtension:
                 if collider.trimesh != None:
                     blender_object.rigid_body.collision_shape = 'MESH'
 
-                #XXX collision system
+                #todo.eoin Collision systems
 
 
-            if nodeExt.collider != None and nodeExt.collider.physicsMaterial != None:
-                mat = self.rbExt.physics_materials[nodeExt.collider.physicsMaterial]
+            if nodeExt.collider != None and nodeExt.collider.physics_material != None:
+                mat = self.rbExt.physics_materials[nodeExt.collider.physics_material]
                 if mat.dynamic_friction != None:
                     blender_object.rigid_body.friction = mat.dynamic_friction
                 if mat.restitution != None:
@@ -1128,11 +1228,7 @@ class glTF2ExportUserExtension:
                     collider_obj = self.ChildOfRootExtension(name = collisionGeom_Extension_Name,
                                                              path = ['colliders'], required = extension_is_required,
                                                              extension = collider_data.to_dict())
-                    filter_data = self._generateFilterData(blender_object)
-                    filter_obj = self.ChildOfRootExtension(name = rigidBody_Extension_Name,
-                                                           path = ['collisionFilters'], required = extension_is_required,
-                                                           extension = filter_data.to_dict())
-
+                    filter_obj = self._generateFilterRootObject(blender_object)
                     extraProps = blender_object.msft_physics_extra_props
                     if extraProps.is_trigger:
                         extension_data.trigger = RigidBodiesNodeExtension.Trigger()
@@ -1142,20 +1238,7 @@ class glTF2ExportUserExtension:
                         extension_data.collider = RigidBodiesNodeExtension.Collider()
                         extension_data.collider.collider = collider_obj
                         extension_data.collider.collision_filter = filter_obj
-
-                        mat = PhysicsMaterial()
-                        mat.static_friction = blender_object.rigid_body.friction
-                        mat.dynamic_friction = blender_object.rigid_body.friction
-                        mat.restitution = blender_object.rigid_body.restitution
-
-                        if extraProps.friction_combine != physics_material_combine_types[0][0]:
-                            mat.friction_combine = extraProps.friction_combine
-                        if extraProps.restitution_combine != physics_material_combine_types[0][0]:
-                            mat.restitution_combine = extraProps.restitution_combine
-
-                        extension_data.collider.physics_material = self.ChildOfRootExtension(
-                                name = rigidBody_Extension_Name, path = ['physicsMaterials'],
-                                extension = mat.to_dict(), required = extension_is_required)
+                        extension_data.collider.physics_material = self._generateMaterialRootObject(blender_object)
 
             if blender_object.rigid_body_constraint:
                 # Because joints refer to another node in the scene, which may not be processed yet,
@@ -1166,8 +1249,7 @@ class glTF2ExportUserExtension:
                 gltf2_object.extensions[rigidBody_Extension_Name] = self.Extension(
                     name=rigidBody_Extension_Name,
                     extension=extension_data.to_dict(),
-                    required=extension_is_required
-                )
+                    required=extension_is_required)
 
     def _isPartOfCompound(self, node):
         cur = node.parent;
@@ -1178,6 +1260,21 @@ class glTF2ExportUserExtension:
             cur = cur.parent
         return False
 
+    def _generateMaterialRootObject(self, blender_object):
+        mat = PhysicsMaterial()
+        mat.static_friction = blender_object.rigid_body.friction
+        mat.dynamic_friction = blender_object.rigid_body.friction
+        mat.restitution = blender_object.rigid_body.restitution
+
+        extraProps = blender_object.msft_physics_extra_props
+        if extraProps.friction_combine != physics_material_combine_types[0][0]:
+            mat.friction_combine = extraProps.friction_combine
+        if extraProps.restitution_combine != physics_material_combine_types[0][0]:
+            mat.restitution_combine = extraProps.restitution_combine
+
+        return self.ChildOfRootExtension( name = rigidBody_Extension_Name, path = ['physicsMaterials'],
+                                         extension = mat.to_dict(), required = extension_is_required)
+
     def _generateJointData(self, node, glNode, export_settings):
         """Converts the concrete joint data on `node` to a generic 6DOF representation"""
         joint = node.rigid_body_constraint
@@ -1185,7 +1282,7 @@ class glTF2ExportUserExtension:
         if not joint.disable_collisions:
             jointData.enable_collision = not joint.disable_collisions
 
-        if export_settings[gltf2_blender_export_keys.YUP]:
+        if export_settings['gltf_yup']:
             X, Y, Z = (0, 2, 1)
         else:
             X, Y, Z = (0, 1, 2)
@@ -1242,7 +1339,7 @@ class glTF2ExportUserExtension:
                 limitSet.joint_limits.append(linLimit)
             if joint.use_limit_lin_y:
                 linLimit = JointLimit.Linear([Y])
-                if export_settings[gltf2_blender_export_keys.YUP]:
+                if export_settings['gltf_yup']:
                     linLimit.min_limit = -joint.limit_lin_y_upper
                     linLimit.max_limit = -joint.limit_lin_y_lower
                 else:
@@ -1262,7 +1359,7 @@ class glTF2ExportUserExtension:
                 limitSet.joint_limits.append(angLimit)
             if joint.use_limit_ang_y:
                 angLimit = JointLimit.Angular([Y])
-                if export_settings[gltf2_blender_export_keys.YUP]:
+                if export_settings['gltf_yup']:
                     angLimit.min_limit = -joint.limit_ang_y_upper
                     angLimit.max_limit = -joint.limit_ang_y_lower
                 else:
@@ -1280,24 +1377,25 @@ class glTF2ExportUserExtension:
                             extension = limitSet, required = extension_is_required)
         return jointData
 
-    def _generateFilterData(self, node):
+    def _generateFilterRootObject(self, node):
         # Blender's native collision filtering has less functionality than the spec enables:
         #    * Children of COMPOUND_PARENT don't have a UI to configure filtering
         #    * An objects' "membership" is always equal to it's "collides with"
         #    * Seems there's no "user friendly" names
-        collisionSystems = ["System_%i" % i for (i,enabled) in enumerate(node.rigid_body.collision_collections) if enabled]
-        result = CollisionFilter()
-        result.collision_systems = collisionSystems
-        result.collide_with_systems = collisionSystems
-        return result
+        collision_systems = ["System_%i" % i for (i,enabled) in enumerate(node.rigid_body.collision_collections) if enabled]
+        collision_filter = CollisionFilter()
+        collision_filter.collision_systems = collision_systems
+        collision_filter.collide_with_systems = collision_systems
+        return self.ChildOfRootExtension(name = rigidBody_Extension_Name,
+                                         path = ['collisionFilters'], required = extension_is_required,
+                                         extension = collision_filter.to_dict())
 
     def _generateColliderData(self, node, glNode, export_settings):
         if node.rigid_body == None or node.rigid_body.collision_shape == 'COMPOUND':
             return None
         collider = Collider()
 
-        if (node.rigid_body.collision_shape == 'CONE'
-                or node.rigid_body.collision_shape == 'CONVEX_HULL'):
+        if node.rigid_body.collision_shape == 'CONVEX_HULL':
             collider.type = 'convex'
             collider.convex = Collider.Convex(glNode.mesh)
         elif node.rigid_body.collision_shape == 'MESH':
@@ -1319,36 +1417,58 @@ class glTF2ExportUserExtension:
                         maxHalfExtent = [max(a,abs(b)) for a,b in zip(maxHalfExtent, v.co)]
                     collider.type = 'box'
                     collider.box = Collider.Box(size = self.__convert_swizzle_scale(maxHalfExtent, export_settings) * 2)
-                #<TODO.eoin.Blender Cone shape feels underspecified? We need to do a proper calculation here
-                elif (node.rigid_body.collision_shape == 'CAPSULE' or
-                        node.rigid_body.collision_shape == 'CYLINDER'):
-                    capsuleAxis = Vector((0,0,1)) # Use blender's up axis, instead of glTF (and transform later)
-                    maxHalfHeight = 0
-                    maxRadiusSquared = 0
-                    for v in meshData.vertices:
-                        maxHalfHeight = max(maxHalfHeight, abs(v.co.dot(capsuleAxis)))
-                        radiusSquared = (v.co - capsuleAxis * v.co.dot(capsuleAxis)).length_squared
-                        maxRadiusSquared = max(maxRadiusSquared, radiusSquared)
-                    height = maxHalfHeight * 2
-                    radius = maxRadiusSquared ** 0.5
+                elif node.rigid_body.collision_shape in ('CAPSULE', 'CONE', 'CYLINDER'):
+
+                    if not node.msft_physics_extra_props.cone_capsule_override:
+                        # User hasn't overridden shape params, so we need to calculate them
+                        # Maybe there's a way to extract them from Blender?
+                        primaryAxis = Vector((0,0,1)) # Use blender's up axis, instead of glTF (and transform later)
+                        maxHalfHeight = 0
+                        maxRadiusSquared = 0
+                        for v in meshData.vertices:
+                            maxHalfHeight = max(maxHalfHeight, abs(v.co.dot(primaryAxis)))
+                            radiusSquared = (v.co - primaryAxis * v.co.dot(primaryAxis)).length_squared
+                            maxRadiusSquared = max(maxRadiusSquared, radiusSquared)
+                        height = maxHalfHeight * 2
+                        radiusBottom = maxRadiusSquared ** 0.5
+                        radiusTop = radiusBottom if node.rigid_body.collision_shape != 'CONE' else 0
+                        if node.rigid_body.collision_shape == 'CAPSULE':
+                            height = height - radiusBottom * 2
+                    else:
+                        height = node.msft_physics_extra_props.cone_capsule_height
+                        radiusBottom = node.msft_physics_extra_props.cone_capsule_radius_bottom
+                        radiusTop = node.msft_physics_extra_props.cone_capsule_radius_top
+
                     if node.rigid_body.collision_shape == 'CAPSULE':
                         collider.type = 'capsule'
-                        collider.capsule = Collider.Capsule(height = height - radius * 2, radius = radius)
+                        collider.capsule = Collider.Capsule(height = height, radiusTop = radiusTop, radiusBottom = radiusBottom)
                     else:
                         collider.type = 'cylinder'
-                        collider.cylinder = Collider.Cylinder(height = height, radius = radius)
+                        collider.cylinder = Collider.Cylinder(height = height, radiusTop = radiusTop, radiusBottom = radiusBottom)
 
-                    if not export_settings[gltf2_blender_export_keys.YUP]:
+                    if not export_settings['gltf_yup']:
                         # Add an additional node to align the object, so the shape is oriented correctly when constructed along +Y
                         collider_alignment = self._constructNode('physicsAlignmentNode',
                                 Vector((0,0,0)), Quaternion((halfSqrt2, 0, 0, halfSqrt2)), export_settings);
-                        rbExt = RigidBodiesNodeExtension()
-                        rbExt.collider = self.ChildOfRootExtension(name = collisionGeom_Extension_Name,
-                                                                   path = ["colliders"], required = extension_is_required,
-                                                                   extension = collider.to_dict())
-                        colliderAlignment.extensions[rigidBody_Extension_Name] = self.Extension(
-                            name=rigidBody_Extension_Name, extension = rbExt, required = extension_is_required)
-                        glNode.children.append(colliderAlignment)
+
+                        node_ext = RigidBodiesNodeExtension()
+                        collider_obj = self.ChildOfRootExtension(name = collisionGeom_Extension_Name,
+                                                                 path = ['colliders'], required = extension_is_required,
+                                                                 extension = collider.to_dict())
+                        if node.msft_physics_extra_props.is_trigger:
+                            node_ext.trigger = RigidBodiesNodeExtension.Trigger()
+                            node_ext.trigger.collision_filter = self._generateFilterRootObject(node)
+                            node_ext.trigger.collider = collider_obj
+                        else:
+                            node_ext.collider = RigidBodiesNodeExtension.Collider()
+                            node_ext.collider.physics_material = self._generateMaterialRootObject(node)
+                            node_ext.collider.collision_filter = self._generateFilterRootObject(node)
+                            node_ext.collider.collider = collider_obj
+
+                        collider_alignment.extensions[rigidBody_Extension_Name] = self.Extension(
+                            name=rigidBody_Extension_Name, extension = node_ext.to_dict(), required = extension_is_required)
+                        glNode.children.append(collider_alignment)
+
                         # We've added the collider data to a child of glNode;
                         # return None so that the glNode doesn't get collider data,
                         return None
@@ -1363,7 +1483,7 @@ class glTF2ExportUserExtension:
                 self.modifiedNode = None
 
             def __enter__(self):
-                if self.export_settings[gltf2_blender_export_keys.APPLY]:
+                if self.export_settings['gltf_apply']:
                     depsGraph = bpy.context.evaluated_depsgraph_get()
                     self.modifiedNode = node.evaluated_get(depsGraph)
                     return self.modifiedNode.to_mesh(preserve_all_data_layers=True, depsgraph=depsGraph)
@@ -1385,7 +1505,7 @@ class glTF2ExportUserExtension:
     # Copy-pasted from the glTF exporter; are they accessible some other way, without having to duplicate?
     def __convert_swizzle_location(self, loc, export_settings):
         """Convert a location from Blender coordinate system to glTF coordinate system."""
-        if export_settings[gltf2_blender_export_keys.YUP]:
+        if export_settings['gltf_yup']:
             return Vector((loc[0], loc[2], -loc[1]))
         else:
             return Vector((loc[0], loc[1], loc[2]))
@@ -1393,7 +1513,7 @@ class glTF2ExportUserExtension:
     # Copy-pasted from the glTF exporter; are they accessible some other way, without having to duplicate?
     def __convert_swizzle_scale(self, scale, export_settings):
         """Convert a scale from Blender coordinate system to glTF coordinate system."""
-        if export_settings[gltf2_blender_export_keys.YUP]:
+        if export_settings['gltf_yup']:
             return Vector((scale[0], scale[2], scale[1]))
         else:
             return Vector((scale[0], scale[1], scale[2]))
@@ -1404,7 +1524,7 @@ class glTF2ExportUserExtension:
         Convert a quaternion rotation from Blender coordinate system to glTF coordinate system.
         'w' is still at first position.
         """
-        if export_settings[gltf2_blender_export_keys.YUP]:
+        if export_settings['gltf_yup']:
             return Quaternion((rot[0], rot[1], rot[3], -rot[2]))
         else:
             return Quaternion((rot[0], rot[1], rot[2], rot[3]))
