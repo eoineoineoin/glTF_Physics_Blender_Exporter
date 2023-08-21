@@ -1,15 +1,15 @@
 ## Extension to export rigid body information in a glTF file.
 
 This is a work in progressused to validate the concepts used by the proposed
-glTF specification for rigid body dynamics, [MSFT_rigid_bodies](https://github.com/eoineoineoin/glTF_Physics) - while this addon may undergo change in future iterations, it had been deployed for production use.
+glTF specification for rigid body dynamics, [KHR_rigid_bodies](https://github.com/eoineoineoin/glTF_Physics) - while this addon may undergo change in future iterations, it has been deployed for production use.
 
 ## Installation
 
 1. Clone this repository or download the zip.
 2. Launch Blender.
 3. Navigate to Edit → Preferences → Addons and click the "Install" button.
-4. Select the file addons/MSFT\_rigid\_bodies.py from this repo 
-5. Browse to and enable the addon "Import-Export: MSFT\_rigid\_bodies"
+4. Select the file addons/KHR\_rigid\_bodies.py from this repo
+5. Browse to and enable the addon "Import-Export: KHR\_rigid\_bodies"
 
 Once installed and enabled, the exporter extension is ready to use. When exporting a glTF file (using the "File" → "Export" → "glTF 2.0" menu in Blender) the plugin can be enabled by enabling it in the "Exporter Extensions" setting of the file selection:
 
@@ -30,7 +30,7 @@ When exporting, this will result in a glTF node with additional extension data:
     "name":"MyRigidBodyObject"
     "mesh":0,
     "extensions":{
-        "MSFT_rigid_bodies":{
+        "KHR_rigid_bodies":{
             "motion":{
                 "mass":12.3
             },
