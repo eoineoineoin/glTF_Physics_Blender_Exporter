@@ -1,6 +1,7 @@
 import bpy
 from ...io.com.gltf2_io_collision_shapes import *
 from ...io.com.gltf2_io_rigid_bodies import *
+from typing import cast
 
 
 class JointFixup:
@@ -28,9 +29,9 @@ class glTF2ImportUserExtension:
         self.joints_to_fixup = []
 
     def gather_import_gltf_before_hook(self, gltf):
-        cgExt = gltf.data.extensions.get(collisionGeom_Extension_Name)
-        if cgExt != None:
-            self.cgExt = CollisionGeomGlTFExtension.from_dict(cgExt)
+        csExt = gltf.data.extensions.get(collisionGeom_Extension_Name)
+        if csExt != None:
+            self.csExt = CollisionShapesGlTFExtension.from_dict(csExt)
         rbExt = gltf.data.extensions.get(rigidBody_Extension_Name)
         if rbExt != None:
             self.rbExt = RigidBodiesGlTFExtension.from_dict(rbExt)
@@ -85,7 +86,7 @@ class glTF2ImportUserExtension:
         if (
             nodeExt.collider != None
             or nodeExt.trigger != None
-            or nodeExt.rigid_motion != None
+            or nodeExt.motion != None
         ):
             if not blender_object.rigid_body:
                 # <todo.eoin This is the only way I've found to add a rigid body to a node
@@ -97,14 +98,14 @@ class glTF2ImportUserExtension:
             blender_object.rigid_body.enabled = False  # Static by default
             blender_object.rigid_body.collision_shape = "COMPOUND"
 
-            colliderIdx = -1
+            colliderIdx = None
             if nodeExt.trigger != None:
                 colliderIdx = nodeExt.trigger.shape
             if nodeExt.collider != None:
                 colliderIdx = nodeExt.collider.shape
 
-            if colliderIdx != -1:
-                shape = self.cgExt.shapes[colliderIdx]
+            if colliderIdx != None:
+                shape = self.csExt.shapes[cast(int, colliderIdx)]
                 if shape.sphere != None:
                     blender_object.rigid_body.collision_shape = "SPHERE"
                 if shape.box != None:
@@ -142,7 +143,9 @@ class glTF2ImportUserExtension:
                 # todo.eoin Collision systems
 
             if nodeExt.collider != None and nodeExt.collider.physics_material != None:
-                mat = self.rbExt.physics_materials[nodeExt.collider.physics_material]
+                mat = self.rbExt.materials[
+                    cast(int, nodeExt.collider.physics_material)
+                ]
                 if mat.dynamic_friction != None:
                     blender_object.rigid_body.friction = mat.dynamic_friction
                 if mat.restitution != None:
@@ -156,40 +159,38 @@ class glTF2ImportUserExtension:
                         mat.restitution_combine
                     )
 
-        if nodeExt.rigid_motion:
+        if nodeExt.motion:
             blender_object.rigid_body.enabled = True
-            if nodeExt.rigid_motion.mass != None:
-                blender_object.rigid_body.mass = nodeExt.rigid_motion.mass
-                if nodeExt.rigid_motion.mass == 0:
+            if nodeExt.motion.mass != None:
+                blender_object.rigid_body.mass = nodeExt.motion.mass
+                if nodeExt.motion.mass == 0:
                     blender_object.khr_physics_extra_props.infinite_mass = True
-            if nodeExt.rigid_motion.is_kinematic != None:
-                blender_object.rigid_body.is_kinematic = (
-                    nodeExt.rigid_motion.is_kinematic
-                )
-            if nodeExt.rigid_motion.center_of_mass != None:
+            if nodeExt.motion.is_kinematic != None:
+                blender_object.rigid_body.is_kinematic = nodeExt.motion.is_kinematic
+            if nodeExt.motion.center_of_mass != None:
                 blender_object.khr_physics_extra_props.center_of_mass = (
-                    nodeExt.rigid_motion.center_of_mass
+                    nodeExt.motion.center_of_mass
                 )
                 blender_object.khr_physics_extra_props.enable_com_override = True
-            if nodeExt.rigid_motion.inertia_diagonal != None:
-                it = nodeExt.rigid_motion.inertia_diagonal
+            if nodeExt.motion.inertia_diagonal != None:
+                it = nodeExt.motion.inertia_diagonal
                 blender_object.khr_physics_extra_props.inertia_major_axis = it
                 blender_object.khr_physics_extra_props.enable_inertia_override = True
-            if nodeExt.rigid_motion.inertia_orientation != None:
-                io = nodeExt.rigid_motion.inertia_orientation.to_euler()
+            if nodeExt.motion.inertia_orientation != None:
+                io = nodeExt.motion.inertia_orientation.to_euler()
                 blender_object.khr_physics_extra_props.inertia_orientation = io
                 blender_object.khr_physics_extra_props.enable_inertia_override = True
-            if nodeExt.rigid_motion.linear_velocity != None:
+            if nodeExt.motion.linear_velocity != None:
                 blender_object.khr_physics_extra_props.linear_velocity = (
-                    nodeExt.rigid_motion.linear_velocity
+                    nodeExt.motion.linear_velocity
                 )
-            if nodeExt.rigid_motion.angular_velocity != None:
+            if nodeExt.motion.angular_velocity != None:
                 blender_object.khr_physics_extra_props.angular_velocity = (
-                    nodeExt.rigid_motion.angular_velocity
+                    nodeExt.motion.angular_velocity
                 )
-            if nodeExt.rigid_motion.gravity_factor != None:
+            if nodeExt.motion.gravity_factor != None:
                 blender_object.khr_physics_extra_props.gravity_factor = (
-                    nodeExt.rigid_motion.gravity_factor
+                    nodeExt.motion.gravity_factor
                 )
 
         if nodeExt.joint:
@@ -210,7 +211,10 @@ class glTF2ImportUserExtension:
                     not nodeExt.joint.enable_collision
                 )
 
-            limitSet = self.rbExt.physics_joint_limits[nodeExt.joint.joint_limits]
+            assert nodeExt.joint.joint_limits != None
+            limitSet = self.rbExt.joints[
+                cast(int, nodeExt.joint.joint_limits)
+            ]
             for limit in limitSet.joint_limits:
                 minLimit = limit.min_limit if limit.min_limit != None else 0
                 maxLimit = limit.max_limit if limit.max_limit != None else 0

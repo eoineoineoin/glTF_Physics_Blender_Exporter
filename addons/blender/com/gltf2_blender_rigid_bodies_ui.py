@@ -7,12 +7,12 @@ import math
 from ...io.com.gltf2_io_rigid_bodies import physics_material_combine_types
 
 
-class KHRPhysicsSceneAdditionalSettings(bpy.types.PropertyGroup):
+class KHR_rigid_body_scene_properties(bpy.types.PropertyGroup):
     draw_velocity: bpy.props.BoolProperty(name="Draw Velocities", default=False)
     draw_mass_props: bpy.props.BoolProperty(name="Draw Mass Properties", default=False)
 
 
-class KHRPhysicsBodyAdditionalSettings(bpy.types.PropertyGroup):
+class KHR_rigid_body_node_properties(bpy.types.PropertyGroup):
     is_trigger: bpy.props.BoolProperty(name="Is Trigger", default=False)
     gravity_factor: bpy.props.FloatProperty(name="Gravity Factor", default=1.0)
     linear_velocity: bpy.props.FloatVectorProperty(
@@ -60,7 +60,7 @@ class KHRPhysicsBodyAdditionalSettings(bpy.types.PropertyGroup):
     cone_capsule_height: bpy.props.FloatProperty(name="Height", default=1.0, min=0)
 
 
-class KHRPhysicsExporterProperties(bpy.types.PropertyGroup):
+class KHR_rigid_body_exporter_properties(bpy.types.PropertyGroup):
     enabled: bpy.props.BoolProperty(
         name="KHR_rigid_bodies",
         description="Include rigid body data in the exported glTF file.",
@@ -68,7 +68,7 @@ class KHRPhysicsExporterProperties(bpy.types.PropertyGroup):
     )
 
 
-class KHRPhysicsImporterProperties(bpy.types.PropertyGroup):
+class KHR_rigid_body_importer_properties(bpy.types.PropertyGroup):
     enabled: bpy.props.BoolProperty(
         name="KHR_rigid_bodies",
         description="Include rigid body data from the imported glTF file.",
@@ -76,7 +76,7 @@ class KHRPhysicsImporterProperties(bpy.types.PropertyGroup):
     )
 
 
-class KHRPhysicsSettingsViewportRenderHelper:
+class KHR_rigid_body_viewport_render:
     def __init__(self):
         self.shader = gpu.shader.from_builtin("3D_UNIFORM_COLOR")
 
@@ -275,10 +275,10 @@ class KHRPhysicsSettingsViewportRenderHelper:
             batch.draw(self.shader)
 
 
-viewportRenderHelper = KHRPhysicsSettingsViewportRenderHelper()
+viewportRenderHelper = KHR_rigid_body_viewport_render()
 
 
-class KHRPhysicsSettingsViewportPanel(bpy.types.Panel):
+class KHR_MT_rigid_body_visualizer(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "KHR Physics"
@@ -299,64 +299,154 @@ class KHRPhysicsSettingsViewportPanel(bpy.types.Panel):
         row.prop(context.scene.khr_physics_scene_viewer_props, "draw_mass_props")
 
 
-class KHRPhysicsSettingsPanel(bpy.types.Panel):
+class KHR_PT_rigid_body_panel_base(bpy.types.Panel):
     bl_label = "KHR Physics Extensions"
-    bl_idname = "OBJECT_PT_KHR_Physics_Extensions"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
     bl_context = "physics"
 
     @classmethod
-    def poll(cls, context):
+    def rigid_body_selected(cls, context):
         if context.object and context.object.rigid_body:
             return True
         return None
 
+
+class KHR_PT_rigid_body_panel(KHR_PT_rigid_body_panel_base):
+    bl_idname = "OBJECT_PT_KHR_Physics_Extensions"
+
+    @classmethod
+    def poll(cls, context):
+        return KHR_PT_rigid_body_panel_base.rigid_body_selected(context)
+
     def draw(self, context):
-        layout = self.layout
+        pass
 
+
+class KHR_PT_rigid_body_motion(KHR_PT_rigid_body_panel_base):
+    bl_label = "Motion"
+    bl_parent_id = "OBJECT_PT_KHR_Physics_Extensions"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "physics"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    @classmethod
+    def poll(cls, context):
+        return (
+            KHR_PT_rigid_body_panel_base.rigid_body_selected(context)
+            and context.object.rigid_body.enabled
+        )  # "Dynamic" checked
+
+    def draw(self, context):
         obj = context.object
+        layout = self.layout
+        layout.use_property_split = True
+        flow = layout.grid_flow(
+            row_major=True, columns=0, even_columns=True, even_rows=False, align=True
+        )
 
-        # todo.eoin This feels a little different to Blender's usual UI.
-        # Figure out how to add nice boxes/expanding headers/margins. (Seems to be nested Panels?)
+        col = flow.column()
+        col.prop(obj.khr_physics_extra_props, "linear_velocity")
+
+        col = flow.column()
+        col.prop(obj.khr_physics_extra_props, "angular_velocity")
+
+        col = flow.column()
+        col.prop(obj.khr_physics_extra_props, "gravity_factor")
+
+
+class KHR_PT_rigid_body_mass(KHR_PT_rigid_body_panel_base):
+    bl_label = "Mass properties"
+    bl_parent_id = "OBJECT_PT_KHR_Physics_Extensions"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "physics"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    @classmethod
+    def poll(cls, context):
+        return (
+            KHR_PT_rigid_body_panel_base.rigid_body_selected(context)
+            and context.object.rigid_body.enabled
+        )  # "Dynamic" checked
+
+    def draw(self, context):
+        obj = context.object
+        layout = self.layout
+        layout.use_property_split = True
+        flow = layout.grid_flow(
+            row_major=True, columns=0, even_columns=True, even_rows=False, align=True
+        )
+
+        col = flow.column()
+        col.prop(obj.khr_physics_extra_props, "infinite_mass")
+
+        col = flow.column()
+        col.prop(obj.khr_physics_extra_props, "enable_inertia_override")
+
+        col = flow.column()
+        col.enabled = obj.khr_physics_extra_props.enable_inertia_override
+        col.prop(obj.khr_physics_extra_props, "inertia_major_axis")
+
+        col = flow.column()
+        col.enabled = obj.khr_physics_extra_props.enable_inertia_override
+        col.prop(obj.khr_physics_extra_props, "inertia_orientation")
+
+        col = flow.column()
+        col.prop(obj.khr_physics_extra_props, "enable_com_override")
+
+        col = flow.column()
+        col.enabled = obj.khr_physics_extra_props.enable_com_override
+        col.prop(obj.khr_physics_extra_props, "center_of_mass")
+
+
+class KHR_PT_rigid_body_shape(KHR_PT_rigid_body_panel_base):
+    bl_label = "Collisions"
+    bl_parent_id = "OBJECT_PT_KHR_Physics_Extensions"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "physics"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    @classmethod
+    def poll(cls, context):
+        return KHR_PT_rigid_body_panel_base.rigid_body_selected(context)
+
+    def draw(self, context):
+        obj = context.object
+        layout = self.layout
+        layout.use_property_split = True
+        flow = layout.grid_flow(
+            row_major=True, columns=0, even_columns=True, even_rows=False, align=True
+        )
+
+        col = flow.column()
+        col.prop(obj.khr_physics_extra_props, "is_trigger")
+
+        col = flow.column()
+        col.prop(obj.rigid_body, "friction")
+        col.active = not obj.khr_physics_extra_props.is_trigger
+
+        col = flow.column()
+        col.active = not obj.khr_physics_extra_props.is_trigger
+        col.prop(obj.rigid_body, "restitution", text="Bounciness")
+
+        col = flow.column()
+        col.active = not obj.khr_physics_extra_props.is_trigger
+        col.prop(obj.khr_physics_extra_props, "friction_combine")
+
+        col = flow.column()
+        col.active = not obj.khr_physics_extra_props.is_trigger
+        col.prop(obj.khr_physics_extra_props, "restitution_combine")
 
         # Some extra shape parameterizations
         if context.object.rigid_body.collision_shape in ("CAPSULE", "CYLINDER", "CONE"):
             # It would be nice to have a "intitialize from exising mesh" button here
-            row = layout.row()
+            row = flow.column()
             row.prop(obj.khr_physics_extra_props, "cone_capsule_override")
-            row = layout.row()
+            row = flow.column()
+            row.active = obj.khr_physics_extra_props.cone_capsule_override
             row.prop(obj.khr_physics_extra_props, "cone_capsule_radius_bottom")
             row.prop(obj.khr_physics_extra_props, "cone_capsule_height")
             row.prop(obj.khr_physics_extra_props, "cone_capsule_radius_top")
-
-        row = layout.row()
-        row.prop(obj.khr_physics_extra_props, "is_trigger")
-        row = layout.row()
-        row.prop(obj.khr_physics_extra_props, "gravity_factor")
-        row = layout.row()
-        row.prop(obj.khr_physics_extra_props, "linear_velocity")
-        row = layout.row()
-        row.prop(obj.khr_physics_extra_props, "angular_velocity")
-
-        row = layout.row()
-        row.prop(obj.khr_physics_extra_props, "infinite_mass")
-        row = layout.row()
-        row.prop(obj.khr_physics_extra_props, "enable_inertia_override")
-        row = layout.row()
-        row.enabled = obj.khr_physics_extra_props.enable_inertia_override
-        row.prop(obj.khr_physics_extra_props, "inertia_major_axis")
-        row = layout.row()
-        row.enabled = obj.khr_physics_extra_props.enable_inertia_override
-        row.prop(obj.khr_physics_extra_props, "inertia_orientation")
-
-        row = layout.row()
-        row.prop(obj.khr_physics_extra_props, "enable_com_override")
-        row = layout.row()
-        row.prop(obj.khr_physics_extra_props, "center_of_mass")
-        row.enabled = obj.khr_physics_extra_props.enable_com_override
-
-        row = layout.row()
-        row.prop(obj.khr_physics_extra_props, "friction_combine")
-        row = layout.row()
-        row.prop(obj.khr_physics_extra_props, "restitution_combine")

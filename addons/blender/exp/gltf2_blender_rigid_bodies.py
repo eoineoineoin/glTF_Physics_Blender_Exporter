@@ -1,7 +1,8 @@
 import bpy
 from ...io.com.gltf2_io_collision_shapes import *
 from ...io.com.gltf2_io_rigid_bodies import *
-from mathutils import Matrix
+from io_scene_gltf2.io.com.gltf2_io import Node
+from mathutils import Matrix, Euler
 
 # Constant used to construct some quaternions when switching up axis
 halfSqrt2 = 2**0.5 * 0.5
@@ -17,8 +18,8 @@ class glTF2ExportUserExtension:
         self.Extension = Extension
         self.ChildOfRootExtension = ChildOfRootExtension
         self.properties = bpy.context.scene.khr_physics_exporter_props
-        self.gltfExt = RigidBodiesGlTFExtension()
-        self.cgGltfExt = CollisionGeomGlTFExtension()
+        self.rbExt = RigidBodiesGlTFExtension()
+        self.csExt = CollisionShapesGlTFExtension()
 
         # Supporting data allowing us to save joints correctly
         self.blenderJointObjects = []
@@ -31,19 +32,21 @@ class glTF2ExportUserExtension:
         if gltf2_plan.extensions is None:
             gltf2_plan.extensions = {}
 
-        if self.gltfExt.should_export():
+        if self.rbExt.should_export():
             physicsRootExtension = self.Extension(
-                name=rigidBody_Extension_Name, extension=self.gltfExt, required=False
+                name=rigidBody_Extension_Name,
+                extension=self.rbExt.to_dict(),
+                required=False,
             )
             gltf2_plan.extensions[rigidBody_Extension_Name] = physicsRootExtension
 
         if (
             not collisionGeom_Extension_Name in gltf2_plan.extensions
-            and self.cgGltfExt.should_export()
+            and self.csExt.should_export()
         ):
             cgRootExtension = self.Extension(
                 name=collisionGeom_Extension_Name,
-                extension=self.cgGltfExt,
+                extension=self.csExt.to_dict(),
                 required=False,
             )
             gltf2_plan.extensions[collisionGeom_Extension_Name] = cgRootExtension
@@ -108,6 +111,14 @@ class glTF2ExportUserExtension:
             gltf_A.children.append(jointInA)
 
     def gather_node_hook(self, gltf2_object, blender_object, export_settings):
+        try:
+            self.gather_node_hook2(gltf2_object, blender_object, export_settings)
+        except:
+            import traceback
+
+            print(traceback.format_exc())
+
+    def gather_node_hook2(self, gltf2_object, blender_object, export_settings):
         if self.properties.enabled:
             self.blenderNodeToGltfNode[blender_object] = gltf2_object
 
@@ -126,43 +137,43 @@ class glTF2ExportUserExtension:
                 rb = blender_object.rigid_body
                 extraProps = blender_object.khr_physics_extra_props
 
-                rigid_motion = RigidMotion()
+                motion = Motion()
 
                 if rb.kinematic:
-                    rigid_motion.is_kinematic = rb.kinematic
+                    motion.is_kinematic = rb.kinematic
 
-                rigid_motion.mass = rb.mass
+                motion.mass = rb.mass
                 if extraProps.infinite_mass:
-                    rigid_motion.mass = 0
+                    motion.mass = 0
 
                 if extraProps.gravity_factor != 1.0:
-                    rigid_motion.gravity_factor = extraProps.gravity_factor
+                    motion.gravity_factor = extraProps.gravity_factor
 
                 lv = self.__convert_swizzle_location(
                     Vector(extraProps.linear_velocity), export_settings
                 )
                 if lv.length_squared != 0:
-                    rigid_motion.linear_velocity = lv
+                    motion.linear_velocity = lv
                 av = self.__convert_swizzle_location(
                     Vector(extraProps.angular_velocity), export_settings
                 )
                 if av.length_squared != 0:
-                    rigid_motion.angular_velocity = av
+                    motion.angular_velocity = av
 
                 if extraProps.enable_com_override:
-                    rigid_motion.center_of_mass = self.__convert_swizzle_location(
+                    motion.center_of_mass = self.__convert_swizzle_location(
                         Vector(extraProps.center_of_mass), export_settings
                     )
 
                 if extraProps.enable_inertia_override:
-                    rigid_motion.inertia_diagonal = self.__convert_swizzle_scale(
+                    motion.inertia_diagonal = self.__convert_swizzle_scale(
                         extraProps.inertia_major_axis, export_settings
                     )
-                    rigid_motion.inertia_orientation = Euler(
+                    motion.inertia_orientation = Euler(
                         blender_object.khr_physics_extra_props.inertia_orientation
                     ).to_quaternion()
 
-                extension_data.rigid_motion = rigid_motion
+                extension_data.motion = motion
 
             if blender_object.rigid_body:
                 shape_data = self._generateShapeData(
@@ -178,11 +189,11 @@ class glTF2ExportUserExtension:
                     filter_obj = self._generateFilterRootObject(blender_object)
                     extraProps = blender_object.khr_physics_extra_props
                     if extraProps.is_trigger:
-                        extension_data.trigger = RigidBodiesNodeExtension.Trigger()
+                        extension_data.trigger = Trigger()
                         extension_data.trigger.shape = shape_obj
                         extension_data.trigger.collision_filter = filter_obj
                     else:
-                        extension_data.collider = RigidBodiesNodeExtension.Collider()
+                        extension_data.collider = Collider()
                         extension_data.collider.shape = shape_obj
                         extension_data.collider.collision_filter = filter_obj
                         extension_data.collider.physics_material = (
@@ -214,7 +225,7 @@ class glTF2ExportUserExtension:
         return False
 
     def _generateMaterialRootObject(self, blender_object):
-        mat = PhysicsMaterial()
+        mat = Material()
         mat.static_friction = blender_object.rigid_body.friction
         mat.dynamic_friction = blender_object.rigid_body.friction
         mat.restitution = blender_object.rigid_body.restitution
@@ -332,7 +343,7 @@ class glTF2ExportUserExtension:
         jointData.joint_limits = self.ChildOfRootExtension(
             name=rigidBody_Extension_Name,
             path=["physicsJointLimits"],
-            extension=limitSet,
+            extension=limitSet.to_dict(),
             required=False,
         )
         return jointData
@@ -364,125 +375,120 @@ class glTF2ExportUserExtension:
 
         if node.rigid_body.collision_shape == "CONVEX_HULL":
             shape.type = "convex"
-            shape.convex = Shape.Convex(glNode.mesh)
+            shape.convex = Convex(glNode.mesh)
+            return shape
         elif node.rigid_body.collision_shape == "MESH":
             shape.type = "trimesh"
-            shape.trimesh = Shape.TriMesh(glNode.mesh)
-        else:
-            # If the shape is a geometric primitive, we may have to apply modifiers
-            # to see the final geometry. (glNode has already had modifiers applied)
-            with self._accessMeshData(node, export_settings) as meshData:
-                if node.rigid_body.collision_shape == "SPHERE":
-                    maxRR = 0
+            shape.trimesh = TriMesh(glNode.mesh)
+            return shape
+        # If the shape is a geometric primitive, we may have to apply modifiers
+        # to see the final geometry. (glNode has already had modifiers applied)
+        with self._accessMeshData(node, export_settings) as meshData:
+            if node.rigid_body.collision_shape == "SPHERE":
+                maxRR = 0
+                for v in meshData.vertices:
+                    maxRR = max(maxRR, v.co.length_squared)
+                shape.type = "sphere"
+                shape.sphere = Sphere(radius=maxRR**0.5)
+            elif node.rigid_body.collision_shape == "BOX":
+                maxHalfExtent = [0, 0, 0]
+                for v in meshData.vertices:
+                    maxHalfExtent = [
+                        max(a, abs(b)) for a, b in zip(maxHalfExtent, v.co)
+                    ]
+                shape.type = "box"
+                shape.box = Box(
+                    size=self.__convert_swizzle_scale(maxHalfExtent, export_settings)
+                    * 2
+                )
+            elif node.rigid_body.collision_shape in ("CAPSULE", "CONE", "CYLINDER"):
+                if not node.khr_physics_extra_props.cone_capsule_override:
+                    # User hasn't overridden shape params, so we need to calculate them
+                    # Maybe there's a way to extract them from Blender?
+                    primaryAxis = Vector(
+                        (0, 0, 1)
+                    )  # Use blender's up axis, instead of glTF (and transform later)
+                    maxHalfHeight = 0
+                    maxRadiusSquared = 0
                     for v in meshData.vertices:
-                        maxRR = max(maxRR, v.co.length_squared)
-                    shape.type = "sphere"
-                    shape.sphere = Shape.Sphere(radius=maxRR**0.5)
-                elif node.rigid_body.collision_shape == "BOX":
-                    maxHalfExtent = [0, 0, 0]
-                    for v in meshData.vertices:
-                        maxHalfExtent = [
-                            max(a, abs(b)) for a, b in zip(maxHalfExtent, v.co)
-                        ]
-                    shape.type = "box"
-                    shape.box = Shape.Box(
-                        size=self.__convert_swizzle_scale(
-                            maxHalfExtent, export_settings
-                        )
-                        * 2
+                        maxHalfHeight = max(maxHalfHeight, abs(v.co.dot(primaryAxis)))
+                        radiusSquared = (
+                            v.co - primaryAxis * v.co.dot(primaryAxis)
+                        ).length_squared
+                        maxRadiusSquared = max(maxRadiusSquared, radiusSquared)
+                    height = maxHalfHeight * 2
+                    radiusBottom = maxRadiusSquared**0.5
+                    radiusTop = (
+                        radiusBottom if node.rigid_body.collision_shape != "CONE" else 0
                     )
-                elif node.rigid_body.collision_shape in ("CAPSULE", "CONE", "CYLINDER"):
-                    if not node.khr_physics_extra_props.cone_capsule_override:
-                        # User hasn't overridden shape params, so we need to calculate them
-                        # Maybe there's a way to extract them from Blender?
-                        primaryAxis = Vector(
-                            (0, 0, 1)
-                        )  # Use blender's up axis, instead of glTF (and transform later)
-                        maxHalfHeight = 0
-                        maxRadiusSquared = 0
-                        for v in meshData.vertices:
-                            maxHalfHeight = max(
-                                maxHalfHeight, abs(v.co.dot(primaryAxis))
-                            )
-                            radiusSquared = (
-                                v.co - primaryAxis * v.co.dot(primaryAxis)
-                            ).length_squared
-                            maxRadiusSquared = max(maxRadiusSquared, radiusSquared)
-                        height = maxHalfHeight * 2
-                        radiusBottom = maxRadiusSquared**0.5
-                        radiusTop = (
-                            radiusBottom
-                            if node.rigid_body.collision_shape != "CONE"
-                            else 0
-                        )
-                        if node.rigid_body.collision_shape == "CAPSULE":
-                            height = height - radiusBottom * 2
-                    else:
-                        height = node.khr_physics_extra_props.cone_capsule_height
-                        radiusBottom = (
-                            node.khr_physics_extra_props.cone_capsule_radius_bottom
-                        )
-                        radiusTop = node.khr_physics_extra_props.cone_capsule_radius_top
-
                     if node.rigid_body.collision_shape == "CAPSULE":
-                        shape.type = "capsule"
-                        shape.capsule = Shape.Capsule(
-                            height=height,
-                            radiusTop=radiusTop,
-                            radiusBottom=radiusBottom,
+                        height = height - radiusBottom * 2
+                else:
+                    height = node.khr_physics_extra_props.cone_capsule_height
+                    radiusBottom = (
+                        node.khr_physics_extra_props.cone_capsule_radius_bottom
+                    )
+                    radiusTop = node.khr_physics_extra_props.cone_capsule_radius_top
+
+                if node.rigid_body.collision_shape == "CAPSULE":
+                    shape.type = "capsule"
+                    shape.capsule = Capsule(
+                        height=height,
+                        radiusTop=radiusTop,
+                        radiusBottom=radiusBottom,
+                    )
+                else:
+                    shape.type = "cylinder"
+                    shape.cylinder = Cylinder(
+                        height=height,
+                        radiusTop=radiusTop,
+                        radiusBottom=radiusBottom,
+                    )
+
+                if not export_settings["gltf_yup"]:
+                    # Add an additional node to align the object, so the shape is oriented correctly when constructed along +Y
+                    shape_alignment = self._constructNode(
+                        "physicsAlignmentNode",
+                        Vector((0, 0, 0)),
+                        Quaternion((halfSqrt2, 0, 0, halfSqrt2)),
+                        export_settings,
+                    )
+
+                    node_ext = RigidBodiesNodeExtension()
+                    shape_obj = self.ChildOfRootExtension(
+                        name=collisionGeom_Extension_Name,
+                        path=["shapes"],
+                        required=False,
+                        extension=shape.to_dict(),
+                    )
+                    if node.khr_physics_extra_props.is_trigger:
+                        node_ext.trigger = Trigger()
+                        node_ext.trigger.collision_filter = (
+                            self._generateFilterRootObject(node)
                         )
+                        node_ext.trigger.shape = shape_obj
                     else:
-                        shape.type = "cylinder"
-                        shape.cylinder = Shape.Cylinder(
-                            height=height,
-                            radiusTop=radiusTop,
-                            radiusBottom=radiusBottom,
+                        node_ext.collider = Collider()
+                        node_ext.collider.physics_material = (
+                            self._generateMaterialRootObject(node)
                         )
-
-                    if not export_settings["gltf_yup"]:
-                        # Add an additional node to align the object, so the shape is oriented correctly when constructed along +Y
-                        shape_alignment = self._constructNode(
-                            "physicsAlignmentNode",
-                            Vector((0, 0, 0)),
-                            Quaternion((halfSqrt2, 0, 0, halfSqrt2)),
-                            export_settings,
+                        node_ext.collider.collision_filter = (
+                            self._generateFilterRootObject(node)
                         )
+                        node_ext.collider.shape = shape_obj
 
-                        node_ext = RigidBodiesNodeExtension()
-                        shape_obj = self.ChildOfRootExtension(
-                            name=collisionGeom_Extension_Name,
-                            path=["shapes"],
-                            required=False,
-                            extension=shape.to_dict(),
-                        )
-                        if node.khr_physics_extra_props.is_trigger:
-                            node_ext.trigger = RigidBodiesNodeExtension.Trigger()
-                            node_ext.trigger.collision_filter = (
-                                self._generateFilterRootObject(node)
-                            )
-                            node_ext.trigger.shape = shape_obj
-                        else:
-                            node_ext.collider = RigidBodiesNodeExtension.Collider()
-                            node_ext.collider.physics_material = (
-                                self._generateMaterialRootObject(node)
-                            )
-                            node_ext.collider.collision_filter = (
-                                self._generateFilterRootObject(node)
-                            )
-                            node_ext.collider.shape = shape_obj
+                    shape_alignment.extensions[
+                        rigidBody_Extension_Name
+                    ] = self.Extension(
+                        name=rigidBody_Extension_Name,
+                        extension=node_ext.to_dict(),
+                        required=False,
+                    )
+                    glNode.children.append(shape_alignment)
 
-                        shape_alignment.extensions[
-                            rigidBody_Extension_Name
-                        ] = self.Extension(
-                            name=rigidBody_Extension_Name,
-                            extension=node_ext.to_dict(),
-                            required=False,
-                        )
-                        glNode.children.append(shape_alignment)
-
-                        # We've added the shape data to a child of glNode;
-                        # return None so that the glNode doesn't get shape data,
-                        return None
+                    # We've added the shape data to a child of glNode;
+                    # return None so that the glNode doesn't get shape data,
+                    return None
         return shape
 
     def _accessMeshData(self, node, export_settings):

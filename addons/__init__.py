@@ -1,7 +1,4 @@
 import bpy
-from io_scene_gltf2.io.com.gltf2_io import Node
-from mathutils import Matrix, Quaternion, Vector, Euler
-import os, sys, math, traceback
 
 from .blender.com.gltf2_blender_rigid_bodies_ui import *
 from .blender.exp.gltf2_blender_rigid_bodies import glTF2ExportUserExtension
@@ -24,23 +21,26 @@ draw_handler = None  # <todo.eoin Clean this up
 
 
 def register():
-    bpy.utils.register_class(KHRPhysicsExporterProperties)
-    bpy.utils.register_class(KHRPhysicsImporterProperties)
-    bpy.utils.register_class(KHRPhysicsSceneAdditionalSettings)
-    bpy.utils.register_class(KHRPhysicsBodyAdditionalSettings)
-    bpy.utils.register_class(KHRPhysicsSettingsViewportPanel)
-    bpy.utils.register_class(KHRPhysicsSettingsPanel)
+    bpy.utils.register_class(KHR_rigid_body_exporter_properties)
+    bpy.utils.register_class(KHR_rigid_body_importer_properties)
+    bpy.utils.register_class(KHR_rigid_body_scene_properties)
+    bpy.utils.register_class(KHR_rigid_body_node_properties)
+    bpy.utils.register_class(KHR_MT_rigid_body_visualizer)
+    bpy.utils.register_class(KHR_PT_rigid_body_panel)
+    bpy.utils.register_class(KHR_PT_rigid_body_motion)
+    bpy.utils.register_class(KHR_PT_rigid_body_shape)
+    bpy.utils.register_class(KHR_PT_rigid_body_mass)
     bpy.types.Scene.khr_physics_exporter_props = bpy.props.PointerProperty(
-        type=KHRPhysicsExporterProperties
+        type=KHR_rigid_body_exporter_properties
     )
     bpy.types.Scene.khr_physics_importer_props = bpy.props.PointerProperty(
-        type=KHRPhysicsImporterProperties
+        type=KHR_rigid_body_importer_properties
     )
     bpy.types.Scene.khr_physics_scene_viewer_props = bpy.props.PointerProperty(
-        type=KHRPhysicsSceneAdditionalSettings
+        type=KHR_rigid_body_scene_properties
     )
     bpy.types.Object.khr_physics_extra_props = bpy.props.PointerProperty(
-        type=KHRPhysicsBodyAdditionalSettings
+        type=KHR_rigid_body_node_properties
     )
     global draw_handler
     draw_handler = bpy.types.SpaceView3D.draw_handler_add(
@@ -65,11 +65,7 @@ def register_panel():
 
 def unregister_panel():
     # Since panel is registered on demand, it is possible it is not registered
-    for p in (
-        GLTF_PT_ExportExtensionPanel,
-        GLTF_PT_ImportExtensionPanel,
-        KHRPhysicsSettingsPanel,
-    ):
+    for p in (GLTF_PT_ExportExtensionPanel, GLTF_PT_ImportExtensionPanel):
         try:
             bpy.utils.unregister_class(p)
         except Exception:
@@ -78,11 +74,15 @@ def unregister_panel():
 
 def unregister():
     unregister_panel()
-    bpy.utils.unregister_class(KHRPhysicsExporterProperties)
-    bpy.utils.unregister_class(KHRPhysicsImporterProperties)
-    bpy.utils.unregister_class(KHRPhysicsSceneAdditionalSettings)
-    bpy.utils.unregister_class(KHRPhysicsBodyAdditionalSettings)
-    bpy.utils.unregister_class(KHRPhysicsSettingsViewportPanel)
+    bpy.utils.unregister_class(KHR_rigid_body_exporter_properties)
+    bpy.utils.unregister_class(KHR_rigid_body_importer_properties)
+    bpy.utils.unregister_class(KHR_rigid_body_scene_properties)
+    bpy.utils.unregister_class(KHR_rigid_body_node_properties)
+    bpy.utils.unregister_class(KHR_MT_rigid_body_visualizer)
+    bpy.utils.unregister_class(KHR_PT_rigid_body_panel)
+    bpy.utils.unregister_class(KHR_PT_rigid_body_motion)
+    bpy.utils.unregister_class(KHR_PT_rigid_body_shape)
+    bpy.utils.unregister_class(KHR_PT_rigid_body_mass)
     del bpy.types.Scene.khr_physics_exporter_props
     del bpy.types.Scene.khr_physics_scene_viewer_props
     del bpy.types.Object.khr_physics_extra_props
