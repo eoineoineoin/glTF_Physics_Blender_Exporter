@@ -1,11 +1,11 @@
-from . import gltfProperty, from_vec, from_quat
-from io_scene_gltf2.io.com.gltf2_io import from_union, from_list, from_none
+from . import from_vec, from_quat
+from io_scene_gltf2.io.com.gltf2_io import from_union, from_list, from_extension
 from io_scene_gltf2.io.com.gltf2_io import from_str, from_float, from_int, from_bool
-from io_scene_gltf2.io.com.gltf2_io import to_class
+from io_scene_gltf2.io.com.gltf2_io import from_none, from_dict, to_class, from_extra
 from io_scene_gltf2.io.com.gltf2_io import Node
 from io_scene_gltf2.io.com.gltf2_io_extensions import ChildOfRootExtension
 from mathutils import Vector, Quaternion
-from typing import Optional, Union
+from typing import Optional, Union, Dict, Any
 
 rigidBody_Extension_Name = "KHR_rigid_bodies"
 
@@ -18,18 +18,20 @@ physics_material_combine_types = [
 ]
 
 
-class Material(gltfProperty):
+class Material:
     static_friction: Optional[float] = None
     dynamic_friction: Optional[float] = None
     restitution: Optional[float] = None
     friction_combine: Optional[str] = None
     restitution_combine: Optional[str] = None
+    extensions: Optional[Dict[str, Any]] = None
+    extras: Any = None
 
     def __init__(self):
         super().__init__()
 
     def to_dict(self):
-        result = super().to_dict()
+        result = {}
         result["staticFriction"] = from_union(
             [from_float, from_none], self.static_friction
         )
@@ -43,6 +45,10 @@ class Material(gltfProperty):
         result["restitutionCombine"] = from_union(
             [from_str, from_none], self.restitution_combine
         )
+        result["extensions"] = from_union(
+            [lambda x: from_dict(from_extension, x), from_none], self.extensions
+        )
+        result["extras"] = from_extra(self.extras)
         return result
 
     @staticmethod
@@ -62,19 +68,26 @@ class Material(gltfProperty):
         result.restitution_combine = from_union(
             [from_str, from_none], obj.get("restitutionCombine")
         )
+        result.extensions = from_union(
+            [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
+            obj.get("extensions"),
+        )
+        result.extras = obj.get("extras")
         return result
 
 
-class CollisionFilter(gltfProperty):
+class CollisionFilter:
     collision_systems: Optional[list[str]] = None
     collide_with_systems: Optional[list[str]] = None
     not_collide_systems: Optional[list[str]] = None
+    extensions: Optional[Dict[str, Any]] = None
+    extras: Any = None
 
     def __init__(self):
         super().__init__()
 
     def to_dict(self):
-        result = super().to_dict()
+        result = {}
         result["collisionSystems"] = from_union(
             [lambda x: from_list(from_str, x), from_none], self.collision_systems
         )
@@ -84,6 +97,10 @@ class CollisionFilter(gltfProperty):
         result["notCollideWithSystems"] = from_union(
             [lambda x: from_list(from_str, x), from_none], self.not_collide_systems
         )
+        result["extensions"] = from_union(
+            [lambda x: from_dict(from_extension, x), from_none], self.extensions
+        )
+        result["extras"] = from_extra(self.extras)
         return result
 
     @staticmethod
@@ -100,10 +117,15 @@ class CollisionFilter(gltfProperty):
             [lambda x: from_list(from_str, x), from_none],
             obj.get("notCollideWithSystems"),
         )
+        result.extensions = from_union(
+            [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
+            obj.get("extensions"),
+        )
+        result.extras = obj.get("extras")
         return result
 
 
-class Motion(gltfProperty):
+class Motion:
     is_kinematic: Optional[bool] = None
     mass: Optional[float] = None
     center_of_mass: Optional[Vector] = None
@@ -112,12 +134,14 @@ class Motion(gltfProperty):
     linear_velocity: Optional[Vector] = None
     angular_velocity: Optional[Vector] = None
     gravity_factor: Optional[float] = None
+    extensions: Optional[Dict[str, Any]] = None
+    extras: Any = None
 
     def __init__(self):
         super().__init__()
 
     def to_dict(self):
-        result = super().to_dict()
+        result = {}
         result["isKinematic"] = from_union([from_bool, from_none], self.is_kinematic)
         result["mass"] = from_union([from_float, from_none], self.mass)
         result["centerOfMass"] = from_union([from_vec, from_none], self.center_of_mass)
@@ -136,6 +160,10 @@ class Motion(gltfProperty):
         result["gravityFactor"] = from_union(
             [from_float, from_none], self.gravity_factor
         )
+        result["extensions"] = from_union(
+            [lambda x: from_dict(from_extension, x), from_none], self.extensions
+        )
+        result["extras"] = from_extra(self.extras)
         return result
 
     @staticmethod
@@ -169,14 +197,21 @@ class Motion(gltfProperty):
         result.gravity_factor = from_union(
             [from_float, from_none], obj.get("gravityFactor")
         )
+        result.extensions = from_union(
+            [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
+            obj.get("extensions"),
+        )
+        result.extras = obj.get("extras")
         return result
 
 
-class JointLimit(gltfProperty):
+class JointLimit:
     angular_axes: Optional[list[int]] = None
     linear_axes: Optional[list[int]] = None
     min_limit: Optional[float] = None
     max_limit: Optional[float] = None
+    extensions: Optional[Dict[str, Any]] = None
+    extras: Any = None
 
     def __init__(self):
         super().__init__()
@@ -198,7 +233,7 @@ class JointLimit(gltfProperty):
         return result
 
     def to_dict(self):
-        result = super().to_dict()
+        result = {}
         result["linearAxes"] = from_union(
             [lambda x: from_list(from_int, x), from_none], self.linear_axes
         )
@@ -207,6 +242,10 @@ class JointLimit(gltfProperty):
         )
         result["min"] = from_union([from_float, from_none], self.min_limit)
         result["max"] = from_union([from_float, from_none], self.max_limit)
+        result["extensions"] = from_union(
+            [lambda x: from_dict(from_extension, x), from_none], self.extensions
+        )
+        result["extras"] = from_extra(self.extras)
         return result
 
     @staticmethod
@@ -221,22 +260,33 @@ class JointLimit(gltfProperty):
         )
         limit.min_limit = from_union([from_float, from_none], obj.get("min"))
         limit.max_limit = from_union([from_float, from_none], obj.get("max"))
+        limit.extensions = from_union(
+            [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
+            obj.get("extensions"),
+        )
+        limit.extras = obj.get("extras")
         return limit
 
 
-class JointLimitSet(gltfProperty):
+class JointLimitSet:
     limits: list[JointLimit]
+    extensions: Optional[Dict[str, Any]] = None
+    extras: Any = None
 
     def __init__(self, limits: Optional[list[JointLimit]] = None):
         super().__init__()
         self.joint_limits = limits if limits != None else list()
 
     def to_dict(self):
-        result = super().to_dict()
+        result = {}
         result["limits"] = from_union(
             [lambda x: from_list(lambda l: to_class(JointLimit, l), x), from_none],
             self.joint_limits,
         )
+        result["extensions"] = from_union(
+            [lambda x: from_dict(from_extension, x), from_none], self.extensions
+        )
+        result["extras"] = from_extra(self.extras)
         return result
 
     @staticmethod
@@ -246,27 +296,36 @@ class JointLimitSet(gltfProperty):
         result.joint_limits = from_union(
             [lambda x: from_list(JointLimit.from_dict, x), from_none], obj.get("limits")
         )
+        result.extensions = from_union(
+            [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
+            obj.get("extensions"),
+        )
+        result.extras = obj.get("extras")
         return result
 
 
-class Collider(gltfProperty):
+class Collider:
     shape: Optional[Union[int, ChildOfRootExtension]] = None
     physics_material: Optional[Union[int, ChildOfRootExtension]] = None
     collision_filter: Optional[Union[int, ChildOfRootExtension]] = None
+    extensions: Optional[Dict[str, Any]] = None
+    extras: Any = None
 
     def to_dict(self):
-        result = super().to_dict()
+        result = {}
         result["shape"] = self.shape
         result["physicsMaterial"] = self.physics_material
         result["collisionFilter"] = self.collision_filter
+        result["extensions"] = from_union(
+            [lambda x: from_dict(from_extension, x), from_none], self.extensions
+        )
+        result["extras"] = from_extra(self.extras)
         return result
 
     @staticmethod
     def from_dict(obj):
         assert isinstance(obj, dict)
-        result = (
-            Collider()
-        )  # <todo.eoin Need to handle extensions/extras in all from_dict() methods
+        result = Collider()
         result.shape = from_union([from_int, from_none], obj.get("shape"))
         result.physics_material = from_union(
             [from_int, from_none], obj.get("physicsMaterial")
@@ -274,45 +333,67 @@ class Collider(gltfProperty):
         result.collision_filter = from_union(
             [from_int, from_none], obj.get("collisionFilter")
         )
+        result.extensions = from_union(
+            [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
+            obj.get("extensions"),
+        )
+        result.extras = obj.get("extras")
         return result
 
 
-class Trigger(gltfProperty):
+class Trigger:
     shape: Optional[Union[int, ChildOfRootExtension]] = None
     collision_filter: Optional[Union[int, ChildOfRootExtension]] = None
+    extensions: Optional[Dict[str, Any]] = None
+    extras: Any = None
 
     def to_dict(self):
-        result = super().to_dict()
+        result = {}
         result["shape"] = self.shape
         result["collisionFilter"] = self.collision_filter
+        result["extensions"] = from_union(
+            [lambda x: from_dict(from_extension, x), from_none], self.extensions
+        )
+        result["extras"] = from_extra(self.extras)
         return result
 
     @staticmethod
     def from_dict(obj):
         assert isinstance(obj, dict)
-        result = Trigger()  # <todo.eoin Need to handle extensions/extras
+        result = Trigger()
         result.shape = from_union([from_int, from_none], obj.get("shape"))
         result.collision_filter = from_union(
             [from_int, from_none], obj.get("collisionFilter")
         )
+        result.extensions = from_union(
+            [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
+            obj.get("extensions"),
+        )
+        result.extras = obj.get("extras")
         return result
 
 
-class Joint(gltfProperty):
+class Joint:
     connected_node: Optional[Union[int, Node]] = None
     joint_limits: Optional[Union[int, ChildOfRootExtension]] = None
     enable_collision: Optional[bool] = None
+    extensions: Optional[Dict[str, Any]] = None
+    extras: Any = None
 
     def __init__(self):
         super().__init__()
 
     def to_dict(self):
-        result = super().to_dict()
+        result = {}
         result["connectedNode"] = self.connected_node
         result["jointLimits"] = self.joint_limits
         result["enableCollision"] = from_union(
             [from_bool, from_none], self.enable_collision
         )
+        result["extensions"] = from_union(
+            [lambda x: from_dict(from_extension, x), from_none], self.extensions
+        )
+        result["extras"] = from_extra(self.extras)
         return result
 
     @staticmethod
@@ -328,20 +409,27 @@ class Joint(gltfProperty):
         joint.enable_collision = from_union(
             [from_bool, from_none], obj.get("enableCollision")
         )
+        joint.extensions = from_union(
+            [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
+            obj.get("extensions"),
+        )
+        joint.extras = obj.get("extras")
         return joint
 
 
-class RigidBodiesNodeExtension(gltfProperty):
+class RigidBodiesNodeExtension:
     motion: Optional[Motion] = None
     collider: Optional[Collider] = None
     trigger: Optional[Trigger] = None
     joint: Optional[Joint] = None
+    extensions: Optional[Dict[str, Any]] = None
+    extras: Any = None
 
     def __init__(self):
         super().__init__()
 
     def to_dict(self):
-        result = super().to_dict()
+        result = {}
         result["motion"] = from_union(
             [lambda x: to_class(Motion, x), from_none], self.motion
         )
@@ -356,19 +444,27 @@ class RigidBodiesNodeExtension(gltfProperty):
         result["joint"] = from_union(
             [lambda x: to_class(Joint, x), from_none], self.joint
         )
+        result["extensions"] = from_union(
+            [lambda x: from_dict(from_extension, x), from_none], self.extensions
+        )
+        result["extras"] = from_extra(self.extras)
         return result
 
     @staticmethod
     def from_dict(obj):
         assert isinstance(obj, dict)
         result = RigidBodiesNodeExtension()
-        # <todo.eoin Need to handle extensions/extras in all from_dict() methods
         result.motion = from_union([Motion.from_dict, from_none], obj.get("motion"))
         result.collider = from_union(
             [Collider.from_dict, from_none], obj.get("collider")
         )
         result.trigger = from_union([Trigger.from_dict, from_none], obj.get("trigger"))
         result.joint = from_union([Joint.from_dict, from_none], obj.get("joint"))
+        result.extensions = from_union(
+            [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
+            obj.get("extensions"),
+        )
+        result.extras = obj.get("extras")
         return result
 
 
@@ -376,6 +472,8 @@ class RigidBodiesGlTFExtension:
     materials: list[Material] = []
     joints: list[JointLimitSet] = []
     collision_filters: list[CollisionFilter] = []
+    extensions: Optional[Dict[str, Any]] = None
+    extras: Any = None
 
     def should_export(self):
         return (
@@ -398,6 +496,10 @@ class RigidBodiesGlTFExtension:
             result["physicsMaterials"] = from_list(
                 lambda x: to_class(CollisionFilter, x), self.joints
             )
+        result["extensions"] = from_union(
+            [lambda x: from_dict(from_extension, x), from_none], self.extensions
+        )
+        result["extras"] = from_extra(self.extras)
         return result
 
     @staticmethod
@@ -416,4 +518,9 @@ class RigidBodiesGlTFExtension:
             [lambda x: from_list(CollisionFilter.from_dict, x), from_none],
             obj.get("collisionFilters"),
         )
+        result.extensions = from_union(
+            [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
+            obj.get("extensions"),
+        )
+        result.extras = obj.get("extras")
         return result

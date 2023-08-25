@@ -1,23 +1,28 @@
-from . import gltfProperty, from_vec
+from . import from_vec
 from io_scene_gltf2.io.com.gltf2_io import from_union, from_none, from_float
-from io_scene_gltf2.io.com.gltf2_io import from_str, from_list, from_int
-from io_scene_gltf2.io.com.gltf2_io import to_class
+from io_scene_gltf2.io.com.gltf2_io import from_str, from_list, from_int, from_dict
+from io_scene_gltf2.io.com.gltf2_io import to_class, from_extension, from_extra
 from mathutils import Vector
-from typing import Optional
+from typing import Optional, Dict, Any
 
 collisionGeom_Extension_Name = "KHR_collision_shapes"
 
 
-class Sphere(gltfProperty):
+class Sphere:
     radius: Optional[float] = 0.5
+    extensions: Optional[Dict[str, Any]] = None
+    extras: Any = None
 
     def __init__(self, radius=0.5):
-        super().__init__()
         self.radius = radius
 
     def to_dict(self):
-        result = super().to_dict()
+        result = {}
         result["radius"] = self.radius
+        result["extensions"] = from_union(
+            [lambda x: from_dict(from_extension, x), from_none], self.extensions
+        )
+        result["extras"] = from_extra(self.extras)
         return result
 
     @staticmethod
@@ -26,19 +31,30 @@ class Sphere(gltfProperty):
         if obj == None:
             return None
         radius = from_union([from_float, from_none], obj.get("radius"))
-        return Sphere(radius)
+        result = Sphere(radius)
+        result.extensions = from_union(
+            [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
+            obj.get("extensions"),
+        )
+        result.extras = obj.get("extras")
+        return result
 
 
-class Box(gltfProperty):
+class Box:
     size: Optional[Vector] = Vector((1.0, 1.0, 1.0))
+    extensions: Optional[Dict[str, Any]] = None
+    extras: Any = None
 
     def __init__(self, size=Vector((1.0, 1.0, 1.0))):
-        super().__init__()
         self.size = size
 
     def to_dict(self):
         result = {}
         result["size"] = from_union([from_vec, from_none], self.size)
+        result["extensions"] = from_union(
+            [lambda x: from_dict(from_extension, x), from_none], self.extensions
+        )
+        result["extras"] = from_extra(self.extras)
         return result
 
     @staticmethod
@@ -49,25 +65,36 @@ class Box(gltfProperty):
         size = from_union(
             [lambda x: Vector(from_list(from_float, x)), from_none], obj.get("size")
         )
-        return Box(size)
+        result = Box(size)
+        result.extensions = from_union(
+            [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
+            obj.get("extensions"),
+        )
+        result.extras = obj.get("extras")
+        return result
 
 
-class Capsule(gltfProperty):
+class Capsule:
     height: Optional[float] = 0.5
     radius_bottom: Optional[float] = 0.25
     radius_top: Optional[float] = 0.25
+    extensions: Optional[Dict[str, Any]] = None
+    extras: Any = None
 
     def __init__(self, height=0.5, radiusBottom=0.25, radiusTop=0.25):
-        super().__init__()
         self.height = height
         self.radiusBottom = radiusBottom
         self.radiusTop = radiusTop
 
     def to_dict(self):
-        result = super().to_dict()
+        result = {}
         result["height"] = from_union([from_float, from_none], self.height)
         result["radiusBottom"] = from_union([from_float, from_none], self.radiusBottom)
         result["radiusTop"] = from_union([from_float, from_none], self.radiusTop)
+        result["extensions"] = from_union(
+            [lambda x: from_dict(from_extension, x), from_none], self.extensions
+        )
+        result["extras"] = from_extra(self.extras)
         return result
 
     @staticmethod
@@ -78,25 +105,36 @@ class Capsule(gltfProperty):
         height = from_union([from_float, from_none], obj.get("height"))
         radiusBottom = from_union([from_float, from_none], obj.get("radiusBottom"))
         radiusTop = from_union([from_float, from_none], obj.get("radiusTop"))
-        return Capsule(height, radiusBottom, radiusTop)
+        result = Capsule(height, radiusBottom, radiusTop)
+        result.extensions = from_union(
+            [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
+            obj.get("extensions"),
+        )
+        result.extras = obj.get("extras")
+        return result
 
 
-class Cylinder(gltfProperty):
+class Cylinder:
     height: Optional[float] = 0.5
     radiusBottom: Optional[float] = 0.25
     radiusTop: Optional[float] = 0.25
+    extensions: Optional[Dict[str, Any]] = None
+    extras: Any = None
 
     def __init__(self, height=0.5, radiusBottom=0.25, radiusTop=0.25):
-        super().__init__()
         self.height = height
         self.radiusBottom = radiusBottom
         self.radiusTop = radiusTop
 
     def to_dict(self):
-        result = super().to_dict()
+        result = {}
         result["height"] = from_union([from_float, from_none], self.height)
         result["radiusBottom"] = from_union([from_float, from_none], self.radiusBottom)
         result["radiusTop"] = from_union([from_float, from_none], self.radiusTop)
+        result["extensions"] = from_union(
+            [lambda x: from_dict(from_extension, x), from_none], self.extensions
+        )
+        result["extras"] = from_extra(self.extras)
         return result
 
     @staticmethod
@@ -107,19 +145,30 @@ class Cylinder(gltfProperty):
         height = from_union([from_float, from_none], obj.get("height"))
         radiusBottom = from_union([from_float, from_none], obj.get("radiusBottom"))
         radiusTop = from_union([from_float, from_none], obj.get("radiusTop"))
-        return Cylinder(height, radiusBottom, radiusTop)
+        result = Cylinder(height, radiusBottom, radiusTop)
+        result.extensions = from_union(
+            [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
+            obj.get("extensions"),
+        )
+        result.extras = obj.get("extras")
+        return result
 
 
-class Convex(gltfProperty):
+class Convex:
     mesh: Optional[int] = None
+    extensions: Optional[Dict[str, Any]] = None
+    extras: Any = None
 
     def __init__(self, mesh):
-        super().__init__()
         self.mesh = mesh
 
     def to_dict(self):
-        result = super().to_dict()
+        result = {}
         result["mesh"] = self.mesh
+        result["extensions"] = from_union(
+            [lambda x: from_dict(from_extension, x), from_none], self.extensions
+        )
+        result["extras"] = from_extra(self.extras)
         return result
 
     @staticmethod
@@ -128,19 +177,30 @@ class Convex(gltfProperty):
         if obj == None:
             return None
         mesh = from_union([from_int, from_none], obj.get("mesh"))
-        return Convex(mesh)
+        result = Convex(mesh)
+        result.extensions = from_union(
+            [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
+            obj.get("extensions"),
+        )
+        result.extras = obj.get("extras")
+        return result
 
 
-class TriMesh(gltfProperty):
+class TriMesh:
     mesh: Optional[int] = None
+    extensions: Optional[Dict[str, Any]] = None
+    extras: Any = None
 
     def __init__(self, mesh):
-        super().__init__()
         self.mesh = mesh
 
     def to_dict(self):
-        result = super().to_dict()
+        result = {}
         result["mesh"] = self.mesh
+        result["extensions"] = from_union(
+            [lambda x: from_dict(from_extension, x), from_none], self.extensions
+        )
+        result["extras"] = from_extra(self.extras)
         return result
 
     @staticmethod
@@ -149,10 +209,16 @@ class TriMesh(gltfProperty):
         if obj == None:
             return None
         mesh = from_union([from_int, from_none], obj.get("mesh"))
-        return TriMesh(mesh)
+        result = TriMesh(mesh)
+        result.extensions = from_union(
+            [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
+            obj.get("extensions"),
+        )
+        result.extras = obj.get("extras")
+        return result
 
 
-class Shape(gltfProperty):
+class Shape:
     type: Optional[str] = None
     sphere: Optional[Sphere] = None
     box: Optional[Box] = None
@@ -160,12 +226,11 @@ class Shape(gltfProperty):
     cylinder: Optional[Cylinder] = None
     convex: Optional[Convex] = None
     trimesh: Optional[TriMesh] = None
-
-    def __init__(self):
-        super().__init__()
+    extensions: Optional[Dict[str, Any]] = None
+    extras: Any = None
 
     def to_dict(self):
-        result = super().to_dict()
+        result = {}
         result["type"] = from_union([from_str, from_none], self.type)
         result["sphere"] = from_union(
             [lambda x: to_class(Sphere, x), from_none], self.sphere
@@ -198,11 +263,18 @@ class Shape(gltfProperty):
         )
         result.convex = from_union([Convex.from_dict, from_none], obj.get("convex"))
         result.trimesh = from_union([TriMesh.from_dict, from_none], obj.get("trimesh"))
+        result.extensions = from_union(
+            [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
+            obj.get("extensions"),
+        )
+        result.extras = obj.get("extras")
         return result
 
 
 class CollisionShapesGlTFExtension:
     shapes: list[Shape] = []
+    extensions: Optional[Dict[str, Any]] = None
+    extras: Any = None
 
     def should_export(self):
         return len(self.shapes) > 0
@@ -211,6 +283,10 @@ class CollisionShapesGlTFExtension:
         result = {}
         if len(self.shapes):
             result["shapes"] = from_list(lambda x: to_class(Shape, x), self.shapes)
+        result["extensions"] = from_union(
+            [lambda x: from_dict(from_extension, x), from_none], self.extensions
+        )
+        result["extras"] = from_extra(self.extras)
         return result
 
     @staticmethod
@@ -220,4 +296,9 @@ class CollisionShapesGlTFExtension:
         result.shapes = from_union(
             [lambda x: from_list(Shape.from_dict, x), from_none], obj.get("shapes")
         )
+        result.extensions = from_union(
+            [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
+            obj.get("extensions"),
+        )
+        result.extras = obj.get("extras")
         return result
