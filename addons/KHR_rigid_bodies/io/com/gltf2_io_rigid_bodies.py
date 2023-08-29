@@ -210,6 +210,8 @@ class JointLimit:
     linear_axes: Optional[list[int]] = None
     min_limit: Optional[float] = None
     max_limit: Optional[float] = None
+    spring_constant: Optional[float] = None
+    spring_damping: Optional[float] = None
     extensions: Optional[Dict[str, Any]] = None
     extras: Any = None
 
@@ -242,6 +244,8 @@ class JointLimit:
         )
         result["min"] = from_union([from_float, from_none], self.min_limit)
         result["max"] = from_union([from_float, from_none], self.max_limit)
+        result["springConstant"] = from_union([from_float, from_none], self.spring_constant)
+        result["springDamping"] = from_union([from_float, from_none], self.spring_damping)
         result["extensions"] = from_union(
             [lambda x: from_dict(from_extension, x), from_none], self.extensions
         )
@@ -260,6 +264,8 @@ class JointLimit:
         )
         limit.min_limit = from_union([from_float, from_none], obj.get("min"))
         limit.max_limit = from_union([from_float, from_none], obj.get("max"))
+        limit.spring_constant = from_union([from_float, from_none], obj.get("springConstant"))
+        limit.spring_damping = from_union([from_float, from_none], obj.get("springDamping"))
         limit.extensions = from_union(
             [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
             obj.get("extensions"),

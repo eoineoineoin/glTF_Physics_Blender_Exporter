@@ -298,12 +298,15 @@ class glTF2ExportUserExtension:
                 angLimit.min_limit = joint.limit_ang_x_lower
                 angLimit.max_limit = joint.limit_ang_x_upper
                 limitSet.joint_limits.append(angLimit)
-        elif joint.type == "GENERIC":
+        elif joint.type in ("GENERIC", "GENERIC_SPRING"):
             # Appears that Blender always uses 1D constraints
             if joint.use_limit_lin_x:
                 linLimit = JointLimit.Linear([X])
                 linLimit.min_limit = joint.limit_lin_x_lower
                 linLimit.max_limit = joint.limit_lin_x_upper
+                if joint.type == "GENERIC_SPRING" and joint.use_spring_x:
+                    linLimit.spring_constant = joint.spring_stiffness_x
+                    linLimit.spring_damping = joint.spring_damping_x
                 limitSet.joint_limits.append(linLimit)
             if joint.use_limit_lin_y:
                 linLimit = JointLimit.Linear([Y])
@@ -313,17 +316,26 @@ class glTF2ExportUserExtension:
                 else:
                     linLimit.min_limit = joint.limit_lin_y_lower
                     linLimit.max_limit = joint.limit_lin_y_upper
+                if joint.type == "GENERIC_SPRING" and joint.use_spring_y:
+                    linLimit.spring_constant = joint.spring_stiffness_y
+                    linLimit.spring_damping = joint.spring_damping_y
                 limitSet.joint_limits.append(linLimit)
             if joint.use_limit_lin_z:
                 linLimit = JointLimit.Linear([Z])
                 linLimit.min_limit = joint.limit_lin_z_lower
                 linLimit.max_limit = joint.limit_lin_z_upper
+                if joint.type == "GENERIC_SPRING" and joint.use_spring_z:
+                    linLimit.spring_constant = joint.spring_stiffness_z
+                    linLimit.spring_damping = joint.spring_damping_z
                 limitSet.joint_limits.append(linLimit)
 
             if joint.use_limit_ang_x:
                 angLimit = JointLimit.Angular([X])
                 angLimit.min_limit = joint.limit_ang_x_lower
                 angLimit.max_limit = joint.limit_ang_x_upper
+                if joint.type == "GENERIC_SPRING" and joint.use_spring_ang_x:
+                    angLimit.spring_constant = joint.spring_stiffness_ang_x
+                    angLimit.spring_damping = joint.spring_damping_ang_x
                 limitSet.joint_limits.append(angLimit)
             if joint.use_limit_ang_y:
                 angLimit = JointLimit.Angular([Y])
@@ -333,11 +345,17 @@ class glTF2ExportUserExtension:
                 else:
                     angLimit.min_limit = joint.limit_ang_y_lower
                     angLimit.max_limit = joint.limit_ang_y_upper
+                if joint.type == "GENERIC_SPRING" and joint.use_spring_ang_y:
+                    angLimit.spring_constant = joint.spring_stiffness_ang_y
+                    angLimit.spring_damping = joint.spring_damping_ang_y
                 limitSet.joint_limits.append(angLimit)
             if joint.use_limit_ang_z:
                 angLimit = JointLimit.Angular([Z])
                 angLimit.min_limit = joint.limit_ang_z_lower
                 angLimit.max_limit = joint.limit_ang_z_upper
+                if joint.type == "GENERIC_SPRING" and joint.use_spring_ang_z:
+                    angLimit.spring_constant = joint.spring_stiffness_ang_z
+                    angLimit.spring_damping = joint.spring_damping_ang_z
                 limitSet.joint_limits.append(angLimit)
 
         jointData.joint_limits = self.ChildOfRootExtension(

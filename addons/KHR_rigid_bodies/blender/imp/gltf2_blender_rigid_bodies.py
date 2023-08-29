@@ -218,6 +218,7 @@ class glTF2ImportUserExtension:
             for limit in limitSet.joint_limits:
                 minLimit = limit.min_limit if limit.min_limit != None else 0
                 maxLimit = limit.max_limit if limit.max_limit != None else 0
+                (spring, damping) = (limit.spring_constant, limit.spring_damping)
                 X, Y, Z = (0, 2, 1)
                 if limit.linear_axes != None:
                     for axIdx in limit.linear_axes:
@@ -225,25 +226,55 @@ class glTF2ImportUserExtension:
                             joint.use_limit_lin_x = True
                             joint.limit_lin_x_lower = minLimit
                             joint.limit_lin_x_upper = maxLimit
+                            if spring != None or damping:
+                                joint.type = "GENERIC_SPRING"
+                                joint.use_spring_x = True
+                                joint.spring_stiffness_x = spring
+                                joint.spring_damping_x = damping
                         if axIdx == Y:
                             joint.use_limit_lin_y = True
                             joint.limit_lin_y_lower = minLimit
                             joint.limit_lin_y_upper = maxLimit
+                            if spring != None or damping:
+                                joint.type = "GENERIC_SPRING"
+                                joint.use_spring_y = True
+                                joint.spring_stiffness_y = spring
+                                joint.spring_damping_y = damping
                         if axIdx == Z:
                             joint.use_limit_lin_z = True
                             joint.limit_lin_z_lower = minLimit
                             joint.limit_lin_z_upper = maxLimit
+                            if spring != None or damping:
+                                joint.type = "GENERIC_SPRING"
+                                joint.use_spring_z = True
+                                joint.spring_stiffness_z = spring
+                                joint.spring_damping_z = damping
                 if limit.angular_axes != None:
                     for axIdx in limit.angular_axes:
                         if axIdx == X:
                             joint.use_limit_ang_x = True
                             joint.limit_ang_x_lower = minLimit
                             joint.limit_ang_x_upper = maxLimit
+                            if spring != None or damping:
+                                joint.type = "GENERIC_SPRING"
+                                joint.use_spring_ang_x = True
+                                joint.spring_stiffness_ang_x = spring
+                                joint.spring_damping_ang_x = damping
                         if axIdx == Y:
                             joint.use_limit_ang_y = True
                             joint.limit_ang_y_lower = minLimit
                             joint.limit_ang_y_upper = maxLimit
+                            if spring != None or damping:
+                                joint.type = "GENERIC_SPRING"
+                                joint.use_spring_ang_y = True
+                                joint.spring_stiffness_ang_y = spring
+                                joint.spring_damping_ang_y = damping
                         if axIdx == Z:
                             joint.use_limit_ang_z = True
                             joint.limit_ang_z_lower = minLimit
                             joint.limit_ang_z_upper = maxLimit
+                            if spring != None or damping:
+                                joint.type = "GENERIC_SPRING"
+                                joint.use_spring_ang_z = True
+                                joint.spring_stiffness_ang_z = spring
+                                joint.spring_damping_ang_x = damping
