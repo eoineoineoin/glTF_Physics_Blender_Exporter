@@ -53,8 +53,8 @@ def register_panel():
     # This is necessary because the panel is a child of the extensions panel,
     # which may not be registered when we try to register this extension
     try:
-        bpy.utils.register_class(GLTF_PT_ExportExtensionPanel)
-        bpy.utils.register_class(GLTF_PT_ImportExtensionPanel)
+        bpy.utils.register_class(KHR_Rigid_Bodies_ImportExtensionPanel)
+        bpy.utils.register_class(KHR_Rigid_Bodies_ExportExtensionPanel)
     except Exception:
         pass
 
@@ -65,7 +65,7 @@ def register_panel():
 
 def unregister_panel():
     # Since panel is registered on demand, it is possible it is not registered
-    for p in (GLTF_PT_ExportExtensionPanel, GLTF_PT_ImportExtensionPanel):
+    for p in (KHR_Rigid_Bodies_ExportExtensionPanel, KHR_Rigid_Bodies_ImportExtensionPanel):
         try:
             bpy.utils.unregister_class(p)
         except Exception:
@@ -92,7 +92,7 @@ def unregister():
     draw_handler = None
 
 
-class GLTF_PT_ExportExtensionPanel(bpy.types.Panel):
+class KHR_Rigid_Bodies_ExportExtensionPanel(bpy.types.Panel):
     bl_space_type = "FILE_BROWSER"
     bl_region_type = "TOOL_PROPS"
     bl_label = "Enabled"
@@ -118,7 +118,7 @@ class GLTF_PT_ExportExtensionPanel(bpy.types.Panel):
         layout.active = props.enabled
 
 
-class GLTF_PT_ImportExtensionPanel(bpy.types.Panel):
+class KHR_Rigid_Bodies_ImportExtensionPanel(bpy.types.Panel):
     bl_space_type = "FILE_BROWSER"
     bl_region_type = "TOOL_PROPS"
     bl_label = "Enabled"
