@@ -67,7 +67,6 @@ class glTF2ImportUserExtension:
             self.gather_import_node_after_hook_2(vnode, gltf_node, blender_object, gltf)
         except:
             import traceback
-
             print(traceback.format_exc())
 
     def gather_import_node_after_hook_2(self, vnode, gltf_node, blender_object, gltf):
@@ -143,9 +142,7 @@ class glTF2ImportUserExtension:
                 # todo.eoin Collision systems
 
             if nodeExt.collider != None and nodeExt.collider.physics_material != None:
-                mat = self.rbExt.materials[
-                    cast(int, nodeExt.collider.physics_material)
-                ]
+                mat = self.rbExt.materials[cast(int, nodeExt.collider.physics_material)]
                 if mat.dynamic_friction != None:
                     blender_object.rigid_body.friction = mat.dynamic_friction
                 if mat.restitution != None:
@@ -205,6 +202,7 @@ class glTF2ImportUserExtension:
             )
 
             joint = blender_object.rigid_body_constraint
+            joint_extra = blender_object.khr_physics_extra_constraint_props
             joint.type = "GENERIC"
             if nodeExt.joint.enable_collision != None:
                 blender_object.rigid_body_constraint.disable_collisions = (
@@ -212,10 +210,9 @@ class glTF2ImportUserExtension:
                 )
 
             assert nodeExt.joint.joint_limits != None
-            limitSet = self.rbExt.joints[
-                cast(int, nodeExt.joint.joint_limits)
-            ]
+            limitSet = self.rbExt.joints[cast(int, nodeExt.joint.joint_limits)]
             for limit in limitSet.joint_limits:
+                use_limit = limit.min_limit != None or limit.max_limit != None
                 minLimit = limit.min_limit if limit.min_limit != None else 0
                 maxLimit = limit.max_limit if limit.max_limit != None else 0
                 (spring, damping) = (limit.spring_constant, limit.spring_damping)
@@ -223,7 +220,7 @@ class glTF2ImportUserExtension:
                 if limit.linear_axes != None:
                     for axIdx in limit.linear_axes:
                         if axIdx == X:
-                            joint.use_limit_lin_x = True
+                            joint.use_limit_lin_x = use_limit
                             joint.limit_lin_x_lower = minLimit
                             joint.limit_lin_x_upper = maxLimit
                             if spring != None or damping:
@@ -231,8 +228,9 @@ class glTF2ImportUserExtension:
                                 joint.use_spring_x = True
                                 joint.spring_stiffness_x = spring
                                 joint.spring_damping_x = damping
+                            self._populateDrive(joint_extra, limit.drive, linear=True, axisname="x")
                         if axIdx == Y:
-                            joint.use_limit_lin_y = True
+                            joint.use_limit_lin_y = use_limit
                             joint.limit_lin_y_lower = minLimit
                             joint.limit_lin_y_upper = maxLimit
                             if spring != None or damping:
@@ -240,8 +238,9 @@ class glTF2ImportUserExtension:
                                 joint.use_spring_y = True
                                 joint.spring_stiffness_y = spring
                                 joint.spring_damping_y = damping
+                            self._populateDrive(joint_extra, limit.drive, linear=True, axisname="y")
                         if axIdx == Z:
-                            joint.use_limit_lin_z = True
+                            joint.use_limit_lin_z = use_limit
                             joint.limit_lin_z_lower = minLimit
                             joint.limit_lin_z_upper = maxLimit
                             if spring != None or damping:
@@ -249,10 +248,11 @@ class glTF2ImportUserExtension:
                                 joint.use_spring_z = True
                                 joint.spring_stiffness_z = spring
                                 joint.spring_damping_z = damping
+                            self._populateDrive(joint_extra, limit.drive, linear=True, axisname="z")
                 if limit.angular_axes != None:
                     for axIdx in limit.angular_axes:
                         if axIdx == X:
-                            joint.use_limit_ang_x = True
+                            joint.use_limit_ang_x = use_limit
                             joint.limit_ang_x_lower = minLimit
                             joint.limit_ang_x_upper = maxLimit
                             if spring != None or damping:
@@ -260,8 +260,9 @@ class glTF2ImportUserExtension:
                                 joint.use_spring_ang_x = True
                                 joint.spring_stiffness_ang_x = spring
                                 joint.spring_damping_ang_x = damping
+                            self._populateDrive(joint_extra, limit.drive, linear=False, axisname="x")
                         if axIdx == Y:
-                            joint.use_limit_ang_y = True
+                            joint.use_limit_ang_y = use_limit
                             joint.limit_ang_y_lower = minLimit
                             joint.limit_ang_y_upper = maxLimit
                             if spring != None or damping:
@@ -269,8 +270,9 @@ class glTF2ImportUserExtension:
                                 joint.use_spring_ang_y = True
                                 joint.spring_stiffness_ang_y = spring
                                 joint.spring_damping_ang_y = damping
+                            self._populateDrive(joint_extra, limit.drive, linear=False, axisname="y")
                         if axIdx == Z:
-                            joint.use_limit_ang_z = True
+                            joint.use_limit_ang_z = use_limit
                             joint.limit_ang_z_lower = minLimit
                             joint.limit_ang_z_upper = maxLimit
                             if spring != None or damping:
@@ -278,3 +280,18 @@ class glTF2ImportUserExtension:
                                 joint.use_spring_ang_z = True
                                 joint.spring_stiffness_ang_z = spring
                                 joint.spring_damping_ang_x = damping
+                            self._populateDrive(joint_extra, limit.drive, linear=False, axisname="z")
+
+    @staticmethod
+    def _populateDrive(joint_extra, drive : Optional[JointDrive], linear: bool, axisname: str):
+        typeprefix = "lin" if linear else "ang"
+        setattr(joint_extra, "use_%s_drive_%s" % (typeprefix, axisname), drive != None)
+
+        if drive == None:
+            return
+
+        setattr(joint_extra, "%s_%s_drive_pos_target" % (typeprefix, axisname), drive.position_target)
+        setattr(joint_extra, "%s_%s_drive_vel_target" % (typeprefix, axisname), drive.velocity_target)
+        setattr(joint_extra, "%s_%s_drive_max_force" % (typeprefix, axisname), drive.max_force)
+        setattr(joint_extra, "%s_%s_drive_stiffness" % (typeprefix, axisname), drive.stiffness)
+        setattr(joint_extra, "%s_%s_drive_damping" % (typeprefix, axisname), drive.damping)

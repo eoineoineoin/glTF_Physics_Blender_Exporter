@@ -205,6 +205,54 @@ class Motion:
         return result
 
 
+class JointDrive:
+    # TODO.eoin Should be 1/2/3/4D targets
+    position_target: Optional[float] = None
+    velocity_target: Optional[float] = None
+    max_force: Optional[float] = None
+    stiffness: Optional[float] = None
+    damping: Optional[float] = None
+    extensions: Optional[Dict[str, Any]] = None
+    extras: Any = None
+
+    def to_dict(self):
+        result = {}
+        result["positionTarget"] = from_union(
+            [from_float, from_none], self.position_target
+        )
+        result["velocityTarget"] = from_union(
+            [from_float, from_none], self.velocity_target
+        )
+        result["maxForce"] = from_union([from_float, from_none], self.max_force)
+        result["stiffness"] = from_union([from_float, from_none], self.stiffness)
+        result["damping"] = from_union([from_float, from_none], self.damping)
+        result["extensions"] = from_union(
+            [lambda x: from_dict(from_extension, x), from_none], self.extensions
+        )
+        result["extras"] = from_extra(self.extras)
+        return result
+
+    @staticmethod
+    def from_dict(obj):
+        assert isinstance(obj, dict)
+        drive = JointDrive()
+        drive.position_target = from_union(
+            [from_float, from_none], obj.get("positionTarget")
+        )
+        drive.velocity_target = from_union(
+            [from_float, from_none], obj.get("velocityTarget")
+        )
+        drive.max_force = from_union([from_float, from_none], obj.get("maxForce"))
+        drive.stiffness = from_union([from_float, from_none], obj.get("stiffness"))
+        drive.damping = from_union([from_float, from_none], obj.get("damping"))
+        drive.extensions = from_union(
+            [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
+            obj.get("extensions"),
+        )
+        drive.extras = obj.get("extras")
+        return drive
+
+
 class JointLimit:
     angular_axes: Optional[list[int]] = None
     linear_axes: Optional[list[int]] = None
@@ -212,11 +260,9 @@ class JointLimit:
     max_limit: Optional[float] = None
     spring_constant: Optional[float] = None
     spring_damping: Optional[float] = None
+    drive: Optional[JointDrive] = None
     extensions: Optional[Dict[str, Any]] = None
     extras: Any = None
-
-    def __init__(self):
-        super().__init__()
 
     @staticmethod
     def Linear(axes, minLimit=None, maxLimit=None):
@@ -244,8 +290,15 @@ class JointLimit:
         )
         result["min"] = from_union([from_float, from_none], self.min_limit)
         result["max"] = from_union([from_float, from_none], self.max_limit)
-        result["springConstant"] = from_union([from_float, from_none], self.spring_constant)
-        result["springDamping"] = from_union([from_float, from_none], self.spring_damping)
+        result["springConstant"] = from_union(
+            [from_float, from_none], self.spring_constant
+        )
+        result["springDamping"] = from_union(
+            [from_float, from_none], self.spring_damping
+        )
+        result["drive"] = from_union(
+            [lambda d: to_class(JointDrive, d), from_none], self.drive
+        )
         result["extensions"] = from_union(
             [lambda x: from_dict(from_extension, x), from_none], self.extensions
         )
@@ -264,8 +317,13 @@ class JointLimit:
         )
         limit.min_limit = from_union([from_float, from_none], obj.get("min"))
         limit.max_limit = from_union([from_float, from_none], obj.get("max"))
-        limit.spring_constant = from_union([from_float, from_none], obj.get("springConstant"))
-        limit.spring_damping = from_union([from_float, from_none], obj.get("springDamping"))
+        limit.spring_constant = from_union(
+            [from_float, from_none], obj.get("springConstant")
+        )
+        limit.spring_damping = from_union(
+            [from_float, from_none], obj.get("springDamping")
+        )
+        limit.drive = from_union([JointDrive.from_dict, from_none], obj.get("drive"))
         limit.extensions = from_union(
             [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
             obj.get("extensions"),

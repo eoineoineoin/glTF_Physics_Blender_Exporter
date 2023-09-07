@@ -115,7 +115,6 @@ class glTF2ExportUserExtension:
             self.gather_node_hook2(gltf2_object, blender_object, export_settings)
         except:
             import traceback
-
             print(traceback.format_exc())
 
     def gather_node_hook2(self, gltf2_object, blender_object, export_settings):
@@ -246,6 +245,7 @@ class glTF2ExportUserExtension:
     def _generateJointData(self, node, glNode, export_settings):
         """Converts the concrete joint data on `node` to a generic 6DOF representation"""
         joint = node.rigid_body_constraint
+        joint_extra = node.khr_physics_extra_constraint_props
         jointData = Joint()
         if not joint.disable_collisions:
             jointData.enable_collision = not joint.disable_collisions
@@ -299,63 +299,76 @@ class glTF2ExportUserExtension:
                 angLimit.max_limit = joint.limit_ang_x_upper
                 limitSet.joint_limits.append(angLimit)
         elif joint.type in ("GENERIC", "GENERIC_SPRING"):
-            # Appears that Blender always uses 1D constraints
-            if joint.use_limit_lin_x:
+            # Blender always uses 1D constraints
+            linDrives = [self._makeDrive(joint_extra, linear=True, axisname=a) for a in "xyz"]
+            if joint.use_limit_lin_x or linDrives[0] != None:
                 linLimit = JointLimit.Linear([X])
-                linLimit.min_limit = joint.limit_lin_x_lower
-                linLimit.max_limit = joint.limit_lin_x_upper
-                if joint.type == "GENERIC_SPRING" and joint.use_spring_x:
-                    linLimit.spring_constant = joint.spring_stiffness_x
-                    linLimit.spring_damping = joint.spring_damping_x
+                if joint.use_limit_lin_x:
+                    linLimit.min_limit = joint.limit_lin_x_lower
+                    linLimit.max_limit = joint.limit_lin_x_upper
+                    if joint.type == "GENERIC_SPRING" and joint.use_spring_x:
+                        linLimit.spring_constant = joint.spring_stiffness_x
+                        linLimit.spring_damping = joint.spring_damping_x
+                linLimit.drive = linDrives[0]
                 limitSet.joint_limits.append(linLimit)
-            if joint.use_limit_lin_y:
+            if joint.use_limit_lin_y or linDrives[1] != None:
                 linLimit = JointLimit.Linear([Y])
-                if export_settings["gltf_yup"]:
-                    linLimit.min_limit = -joint.limit_lin_y_upper
-                    linLimit.max_limit = -joint.limit_lin_y_lower
-                else:
-                    linLimit.min_limit = joint.limit_lin_y_lower
-                    linLimit.max_limit = joint.limit_lin_y_upper
-                if joint.type == "GENERIC_SPRING" and joint.use_spring_y:
-                    linLimit.spring_constant = joint.spring_stiffness_y
-                    linLimit.spring_damping = joint.spring_damping_y
+                if joint.use_limit_lin_y:
+                    if export_settings["gltf_yup"]:
+                        linLimit.min_limit = -joint.limit_lin_y_upper
+                        linLimit.max_limit = -joint.limit_lin_y_lower
+                    else:
+                        linLimit.min_limit = joint.limit_lin_y_lower
+                        linLimit.max_limit = joint.limit_lin_y_upper
+                    if joint.type == "GENERIC_SPRING" and joint.use_spring_y:
+                        linLimit.spring_constant = joint.spring_stiffness_y
+                        linLimit.spring_damping = joint.spring_damping_y
+                linLimit.drive = linDrives[1]
                 limitSet.joint_limits.append(linLimit)
-            if joint.use_limit_lin_z:
+            if joint.use_limit_lin_z or linDrives[2] != None:
                 linLimit = JointLimit.Linear([Z])
-                linLimit.min_limit = joint.limit_lin_z_lower
-                linLimit.max_limit = joint.limit_lin_z_upper
-                if joint.type == "GENERIC_SPRING" and joint.use_spring_z:
-                    linLimit.spring_constant = joint.spring_stiffness_z
-                    linLimit.spring_damping = joint.spring_damping_z
+                if joint.use_limit_lin_z:
+                    linLimit.min_limit = joint.limit_lin_z_lower
+                    linLimit.max_limit = joint.limit_lin_z_upper
+                    if joint.type == "GENERIC_SPRING" and joint.use_spring_z:
+                        linLimit.spring_constant = joint.spring_stiffness_z
+                        linLimit.spring_damping = joint.spring_damping_z
+                linLimit.drive = linDrives[2]
                 limitSet.joint_limits.append(linLimit)
 
-            if joint.use_limit_ang_x:
+            angDrives = [self._makeDrive(joint_extra, linear=False, axisname=a) for a in "xyz"]
+            if joint.use_limit_ang_x or angDrives[0] != None:
                 angLimit = JointLimit.Angular([X])
-                angLimit.min_limit = joint.limit_ang_x_lower
-                angLimit.max_limit = joint.limit_ang_x_upper
-                if joint.type == "GENERIC_SPRING" and joint.use_spring_ang_x:
-                    angLimit.spring_constant = joint.spring_stiffness_ang_x
-                    angLimit.spring_damping = joint.spring_damping_ang_x
+                if joint.use_limit_ang_x:
+                    angLimit.min_limit = joint.limit_ang_x_lower
+                    angLimit.max_limit = joint.limit_ang_x_upper
+                    if joint.type == "GENERIC_SPRING" and joint.use_spring_ang_x:
+                        angLimit.spring_constant = joint.spring_stiffness_ang_x
+                        angLimit.spring_damping = joint.spring_damping_ang_x
+                angLimit.drive = angDrives[0]
                 limitSet.joint_limits.append(angLimit)
-            if joint.use_limit_ang_y:
+            if joint.use_limit_ang_y or angDrives[1] != None:
                 angLimit = JointLimit.Angular([Y])
-                if export_settings["gltf_yup"]:
-                    angLimit.min_limit = -joint.limit_ang_y_upper
-                    angLimit.max_limit = -joint.limit_ang_y_lower
-                else:
-                    angLimit.min_limit = joint.limit_ang_y_lower
-                    angLimit.max_limit = joint.limit_ang_y_upper
-                if joint.type == "GENERIC_SPRING" and joint.use_spring_ang_y:
-                    angLimit.spring_constant = joint.spring_stiffness_ang_y
-                    angLimit.spring_damping = joint.spring_damping_ang_y
+                if joint.use_limit_ang_y:
+                    if export_settings["gltf_yup"]:
+                        angLimit.min_limit = -joint.limit_ang_y_upper
+                        angLimit.max_limit = -joint.limit_ang_y_lower
+                    else:
+                        angLimit.min_limit = joint.limit_ang_y_lower
+                        angLimit.max_limit = joint.limit_ang_y_upper
+                    if joint.type == "GENERIC_SPRING" and joint.use_spring_ang_y:
+                        angLimit.spring_constant = joint.spring_stiffness_ang_y
+                        angLimit.spring_damping = joint.spring_damping_ang_y
+                angLimit.drive = angDrives[1]
                 limitSet.joint_limits.append(angLimit)
-            if joint.use_limit_ang_z:
+            if joint.use_limit_ang_z or angDrives[2] != None:
                 angLimit = JointLimit.Angular([Z])
                 angLimit.min_limit = joint.limit_ang_z_lower
                 angLimit.max_limit = joint.limit_ang_z_upper
                 if joint.type == "GENERIC_SPRING" and joint.use_spring_ang_z:
                     angLimit.spring_constant = joint.spring_stiffness_ang_z
                     angLimit.spring_damping = joint.spring_damping_ang_z
+                angLimit.drive = angDrives[2]
                 limitSet.joint_limits.append(angLimit)
 
         jointData.joint_limits = self.ChildOfRootExtension(
@@ -365,6 +378,32 @@ class glTF2ExportUserExtension:
             required=False,
         )
         return jointData
+
+    @staticmethod
+    def _makeDrive(joint_extra, linear: bool, axisname: str) -> Optional[JointDrive]:
+        assert axisname in ["x", "y", "z"]
+        typeprefix = "lin" if linear else "ang"
+
+        drive_field_name = "use_%s_drive_%s" % (typeprefix, axisname)
+        if not getattr(joint_extra, drive_field_name):
+            return None
+        drive = JointDrive()
+        drive.position_target = getattr(
+            joint_extra, "%s_%s_drive_pos_target" % (typeprefix, axisname)
+        )
+        drive.velocity_target = getattr(
+            joint_extra, "%s_%s_drive_vel_target" % (typeprefix, axisname)
+        )
+        drive.max_force = getattr(
+            joint_extra, "%s_%s_drive_max_force" % (typeprefix, axisname)
+        )
+        drive.stiffness = getattr(
+            joint_extra, "%s_%s_drive_stiffness" % (typeprefix, axisname)
+        )
+        drive.damping = getattr(
+            joint_extra, "%s_%s_drive_damping" % (typeprefix, axisname)
+        )
+        return drive
 
     def _generateFilterRootObject(self, node):
         # Blender's native collision filtering has less functionality than the spec enables:

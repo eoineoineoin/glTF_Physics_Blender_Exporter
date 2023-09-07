@@ -60,6 +60,50 @@ class KHR_rigid_body_node_properties(bpy.types.PropertyGroup):
     cone_capsule_height: bpy.props.FloatProperty(name="Height", default=1.0, min=0)
 
 
+class KHR_rigid_body_constraint_node_properties(bpy.types.PropertyGroup):
+    use_ang_drive_x: bpy.props.BoolProperty(name="X Axis Drive", default=False)
+    ang_x_drive_pos_target: bpy.props.FloatProperty(name="Position Target", default=0)
+    ang_x_drive_vel_target: bpy.props.FloatProperty(name="Velocity Target", default=0)
+    ang_x_drive_max_force: bpy.props.FloatProperty(name="Max force", default=0)
+    ang_x_drive_stiffness: bpy.props.FloatProperty(name="Stiffness", default=0)
+    ang_x_drive_damping: bpy.props.FloatProperty(name="Damping", default=0)
+
+    use_ang_drive_y: bpy.props.BoolProperty(name="Y Axis Drive", default=False)
+    ang_y_drive_pos_target: bpy.props.FloatProperty(name="Position Target", default=0)
+    ang_y_drive_vel_target: bpy.props.FloatProperty(name="Velocity Target", default=0)
+    ang_y_drive_max_force: bpy.props.FloatProperty(name="Max force", default=0)
+    ang_y_drive_stiffness: bpy.props.FloatProperty(name="Stiffness", default=0)
+    ang_y_drive_damping: bpy.props.FloatProperty(name="Damping", default=0)
+
+    use_ang_drive_z: bpy.props.BoolProperty(name="Z Axis Drive", default=False)
+    ang_z_drive_pos_target: bpy.props.FloatProperty(name="Position Target", default=0)
+    ang_z_drive_vel_target: bpy.props.FloatProperty(name="Velocity Target", default=0)
+    ang_z_drive_max_force: bpy.props.FloatProperty(name="Max force", default=0)
+    ang_z_drive_stiffness: bpy.props.FloatProperty(name="Stiffness", default=0)
+    ang_z_drive_damping: bpy.props.FloatProperty(name="Damping", default=0)
+
+    use_lin_drive_x: bpy.props.BoolProperty(name="X Axis Drive", default=False)
+    lin_x_drive_pos_target: bpy.props.FloatProperty(name="Position Target", default=0)
+    lin_x_drive_vel_target: bpy.props.FloatProperty(name="Velocity Target", default=0)
+    lin_x_drive_max_force: bpy.props.FloatProperty(name="Max force", default=0)
+    lin_x_drive_stiffness: bpy.props.FloatProperty(name="Stiffness", default=0)
+    lin_x_drive_damping: bpy.props.FloatProperty(name="Damping", default=0)
+
+    use_lin_drive_y: bpy.props.BoolProperty(name="Y Axis Drive", default=False)
+    lin_y_drive_pos_target: bpy.props.FloatProperty(name="Position Target", default=0)
+    lin_y_drive_vel_target: bpy.props.FloatProperty(name="Velocity Target", default=0)
+    lin_y_drive_max_force: bpy.props.FloatProperty(name="Max force", default=0)
+    lin_y_drive_stiffness: bpy.props.FloatProperty(name="Stiffness", default=0)
+    lin_y_drive_damping: bpy.props.FloatProperty(name="Damping", default=0)
+
+    use_lin_drive_z: bpy.props.BoolProperty(name="Z Axis Drive", default=False)
+    lin_z_drive_pos_target: bpy.props.FloatProperty(name="Position Target", default=0)
+    lin_z_drive_vel_target: bpy.props.FloatProperty(name="Velocity Target", default=0)
+    lin_z_drive_max_force: bpy.props.FloatProperty(name="Max force", default=0)
+    lin_z_drive_stiffness: bpy.props.FloatProperty(name="Stiffness", default=0)
+    lin_z_drive_damping: bpy.props.FloatProperty(name="Damping", default=0)
+
+
 class KHR_rigid_body_exporter_properties(bpy.types.PropertyGroup):
     enabled: bpy.props.BoolProperty(
         name="KHR_rigid_bodies",
@@ -318,7 +362,7 @@ class KHR_PT_rigid_body_panel_base(bpy.types.Panel):
 
 
 class KHR_PT_rigid_body_panel(KHR_PT_rigid_body_panel_base):
-    bl_idname = "OBJECT_PT_KHR_Physics_Extensions"
+    bl_idname = "KHR_PT_rigid_body_panel"
 
     @classmethod
     def poll(cls, context):
@@ -330,7 +374,7 @@ class KHR_PT_rigid_body_panel(KHR_PT_rigid_body_panel_base):
 
 class KHR_PT_rigid_body_motion(KHR_PT_rigid_body_panel_base):
     bl_label = "Motion"
-    bl_parent_id = "OBJECT_PT_KHR_Physics_Extensions"
+    bl_parent_id = "KHR_PT_rigid_body_panel"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
     bl_context = "physics"
@@ -363,7 +407,7 @@ class KHR_PT_rigid_body_motion(KHR_PT_rigid_body_panel_base):
 
 class KHR_PT_rigid_body_mass(KHR_PT_rigid_body_panel_base):
     bl_label = "Mass properties"
-    bl_parent_id = "OBJECT_PT_KHR_Physics_Extensions"
+    bl_parent_id = "KHR_PT_rigid_body_panel"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
     bl_context = "physics"
@@ -408,7 +452,7 @@ class KHR_PT_rigid_body_mass(KHR_PT_rigid_body_panel_base):
 
 class KHR_PT_rigid_body_shape(KHR_PT_rigid_body_panel_base):
     bl_label = "Collisions"
-    bl_parent_id = "OBJECT_PT_KHR_Physics_Extensions"
+    bl_parent_id = "KHR_PT_rigid_body_panel"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
     bl_context = "physics"
@@ -455,3 +499,164 @@ class KHR_PT_rigid_body_shape(KHR_PT_rigid_body_panel_base):
             row.prop(obj.khr_physics_extra_props, "cone_capsule_radius_bottom")
             row.prop(obj.khr_physics_extra_props, "cone_capsule_height")
             row.prop(obj.khr_physics_extra_props, "cone_capsule_radius_top")
+
+
+class KHR_PT_rigid_body_constraint_panel_base(bpy.types.Panel):
+    bl_label = "KHR Physics Constraint Extensions"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "physics"
+
+    @classmethod
+    def rigid_body_constraint_selected(cls, context):
+        if context.object and context.object.rigid_body:
+            return True
+        return None
+
+
+class KHR_PT_rigid_body_constraint_panel(KHR_PT_rigid_body_constraint_panel_base):
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.rigid_body_constraint
+
+    def draw(self, context):
+        pass
+
+
+class KHR_PT_rigid_body_constraint_drives(KHR_PT_rigid_body_constraint_panel_base):
+    bl_label = "Drives"
+    bl_parent_id = "KHR_PT_rigid_body_constraint_panel"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    @classmethod
+    def poll(cls, context):
+        return KHR_PT_rigid_body_constraint_panel.poll(context)
+
+    def draw(self, context):
+        pass
+
+    @classmethod
+    def _generateDriveSettings(
+        cls,
+        uilayout: bpy.types.UILayout,
+        joint: KHR_rigid_body_constraint_node_properties,
+        linear: bool,
+    ):
+        typeprefix = "lin" if linear else "ang"
+
+        for ax in ["x", "y", "z"]:
+            col = uilayout.column()
+            drive_field_name = "use_%s_drive_%s" % (typeprefix, ax)
+            col.prop(joint, drive_field_name)
+
+            sub = col.column(align=True)
+            sub.active = getattr(joint, drive_field_name)
+            sub.prop(joint, "%s_%s_drive_pos_target" % (typeprefix, ax))
+            sub.prop(joint, "%s_%s_drive_vel_target" % (typeprefix, ax))
+            sub.prop(joint, "%s_%s_drive_max_force" % (typeprefix, ax))
+            sub.prop(joint, "%s_%s_drive_stiffness" % (typeprefix, ax))
+            sub.prop(joint, "%s_%s_drive_damping" % (typeprefix, ax))
+
+
+class KHR_PT_rigid_body_constraint_drives_angular(
+    KHR_PT_rigid_body_constraint_panel_base
+):
+    bl_label = "Angular"
+    bl_parent_id = "KHR_PT_rigid_body_constraint_drives"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    @classmethod
+    def poll(cls, context):
+        return KHR_PT_rigid_body_constraint_panel.poll(context)
+
+    def draw(self, context):
+        joint = context.object.khr_physics_extra_constraint_props
+        layout = self.layout
+        layout.use_property_split = True
+        flow = layout.grid_flow(
+            row_major=True, columns=0, even_columns=True, even_rows=False, align=True
+        )
+        KHR_PT_rigid_body_constraint_drives._generateDriveSettings(
+            flow, joint, linear=False
+        )
+
+
+class KHR_PT_rigid_body_constraint_drives_linear(
+    KHR_PT_rigid_body_constraint_panel_base
+):
+    bl_label = "Linear"
+    bl_parent_id = "KHR_PT_rigid_body_constraint_drives"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    @classmethod
+    def poll(cls, context):
+        return KHR_PT_rigid_body_constraint_panel.poll(context)
+
+    def draw(self, context):
+        joint = context.object.khr_physics_extra_constraint_props
+        layout = self.layout
+        layout.use_property_split = True
+        flow = layout.grid_flow(
+            row_major=True, columns=0, even_columns=True, even_rows=False, align=True
+        )
+        KHR_PT_rigid_body_constraint_drives._generateDriveSettings(
+            flow, joint, linear=True
+        )
+
+
+# Seems we need to keep a global utility around for drawing in the 3D viewport:
+draw_handler = None
+
+registered_classes = [
+    KHR_rigid_body_exporter_properties,
+    KHR_rigid_body_importer_properties,
+    KHR_rigid_body_scene_properties,
+    KHR_rigid_body_node_properties,
+    KHR_rigid_body_constraint_node_properties,
+    KHR_MT_rigid_body_visualizer,
+    KHR_PT_rigid_body_panel,
+    KHR_PT_rigid_body_motion,
+    KHR_PT_rigid_body_shape,
+    KHR_PT_rigid_body_mass,
+    KHR_PT_rigid_body_constraint_panel,
+    KHR_PT_rigid_body_constraint_drives,
+    KHR_PT_rigid_body_constraint_drives_angular,
+    KHR_PT_rigid_body_constraint_drives_linear,
+]
+
+
+def register_ui():
+    for panel in registered_classes:
+        bpy.utils.register_class(panel)
+
+    bpy.types.Scene.khr_physics_exporter_props = bpy.props.PointerProperty(
+        type=KHR_rigid_body_exporter_properties
+    )
+    bpy.types.Scene.khr_physics_importer_props = bpy.props.PointerProperty(
+        type=KHR_rigid_body_importer_properties
+    )
+    bpy.types.Scene.khr_physics_scene_viewer_props = bpy.props.PointerProperty(
+        type=KHR_rigid_body_scene_properties
+    )
+    bpy.types.Object.khr_physics_extra_props = bpy.props.PointerProperty(
+        type=KHR_rigid_body_node_properties
+    )
+    bpy.types.Object.khr_physics_extra_constraint_props = bpy.props.PointerProperty(
+        type=KHR_rigid_body_constraint_node_properties
+    )
+    global draw_handler
+    draw_handler = bpy.types.SpaceView3D.draw_handler_add(
+        viewportRenderHelper.drawExtraPhysicsProperties, (), "WINDOW", "POST_VIEW"
+    )
+
+
+def unregister_ui():
+    for panel in registered_classes:
+        bpy.utils.unregister_class(panel)
+    del bpy.types.Scene.khr_physics_exporter_props
+    del bpy.types.Scene.khr_physics_scene_viewer_props
+    del bpy.types.Object.khr_physics_extra_props
+
+    global draw_handler
+    bpy.types.SpaceView3D.draw_handler_remove(draw_handler, "WINDOW")
+    draw_handler = None
