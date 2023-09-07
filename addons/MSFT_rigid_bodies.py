@@ -1330,7 +1330,7 @@ class glTF2ExportUserExtension:
                 angLimit.min_limit = joint.limit_ang_x_lower
                 angLimit.max_limit = joint.limit_ang_x_upper
                 limitSet.joint_limits.append(angLimit)
-        elif joint.type == 'GENERIC':
+        elif joint.type in ['GENERIC', 'GENERIC_SPRING']:
             # Appears that Blender always uses 1D constraints
             if joint.use_limit_lin_x:
                 linLimit = JointLimit.Linear([X])
