@@ -805,8 +805,8 @@ def register_panel():
     # This is necessary because the panel is a child of the extensions panel,
     # which may not be registered when we try to register this extension
     try:
-        bpy.utils.register_class(MSFT_Physics_ExportExtensionPanel)
-        bpy.utils.register_class(MSFT_Physics_ImportExtensionPanel)
+        bpy.utils.register_class(MSFT_PT_Physics_ExportExtensionPanel)
+        bpy.utils.register_class(MSFT_PT_Physics_ImportExtensionPanel)
     except Exception:
         pass
 
@@ -817,7 +817,7 @@ def register_panel():
 
 def unregister_panel():
     # Since panel is registered on demand, it is possible it is not registered
-    for p in (MSFT_Physics_ExportExtensionPanel, MSFT_Physics_ImportExtensionPanel, MSFTPhysicsSettingsPanel):
+    for p in (MSFT_PT_Physics_ExportExtensionPanel, MSFT_PT_Physics_ImportExtensionPanel, MSFTPhysicsSettingsPanel):
         try:
             bpy.utils.unregister_class(p)
         except Exception:
@@ -838,7 +838,7 @@ def unregister():
     bpy.types.SpaceView3D.draw_handler_remove(draw_handler, "WINDOW")
     draw_handler = None
 
-class MSFT_Physics_ExportExtensionPanel(bpy.types.Panel):
+class MSFT_PT_Physics_ExportExtensionPanel(bpy.types.Panel):
     bl_space_type = 'FILE_BROWSER'
     bl_region_type = 'TOOL_PROPS'
     bl_label = 'Enabled'
@@ -863,7 +863,7 @@ class MSFT_Physics_ExportExtensionPanel(bpy.types.Panel):
         props = bpy.context.scene.msft_physics_exporter_props
         layout.active = props.enabled
 
-class MSFT_Physics_ImportExtensionPanel(bpy.types.Panel):
+class MSFT_PT_Physics_ImportExtensionPanel(bpy.types.Panel):
     bl_space_type = 'FILE_BROWSER'
     bl_region_type = 'TOOL_PROPS'
     bl_label = 'Enabled'
