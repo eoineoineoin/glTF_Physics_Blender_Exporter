@@ -363,11 +363,12 @@ class glTF2ExportUserExtension:
                 limitSet.joint_limits.append(angLimit)
             if joint.use_limit_ang_z or angDrives[2] != None:
                 angLimit = JointLimit.Angular([Z])
-                angLimit.min_limit = joint.limit_ang_z_lower
-                angLimit.max_limit = joint.limit_ang_z_upper
-                if joint.type == "GENERIC_SPRING" and joint.use_spring_ang_z:
-                    angLimit.spring_constant = joint.spring_stiffness_ang_z
-                    angLimit.spring_damping = joint.spring_damping_ang_z
+                if joint.use_limit_ang_z:
+                    angLimit.min_limit = joint.limit_ang_z_lower
+                    angLimit.max_limit = joint.limit_ang_z_upper
+                    if joint.type == "GENERIC_SPRING" and joint.use_spring_ang_z:
+                        angLimit.spring_constant = joint.spring_stiffness_ang_z
+                        angLimit.spring_damping = joint.spring_damping_ang_z
                 angLimit.drive = angDrives[2]
                 limitSet.joint_limits.append(angLimit)
 
