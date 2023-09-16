@@ -1,7 +1,7 @@
 import bpy
 from ...io.com.gltf2_io_collision_shapes import *
 from ...io.com.gltf2_io_rigid_bodies import *
-from io_scene_gltf2.io.com.gltf2_io import Node
+from io_scene_gltf2.io.com import gltf2_io
 from mathutils import Matrix, Euler
 
 # Constant used to construct some quaternions when switching up axis
@@ -24,6 +24,8 @@ class glTF2ExportUserExtension:
         # Supporting data allowing us to save joints correctly
         self.blenderJointObjects = []
         self.blenderNodeToGltfNode = {}
+        self.blenderBoneToGltfNode = {}
+        self.gltfNodeToBlender = {}
 
     def gather_gltf_extensions_hook(self, gltf2_plan, export_settings):
         if not self.properties.enabled:
@@ -51,7 +53,14 @@ class glTF2ExportUserExtension:
             )
             gltf2_plan.extensions[collisionGeom_Extension_Name] = cgRootExtension
 
-    def gather_scene_hook(self, gltf2_scene, blender_scene, export_settings):
+    def gather_scene_hook(self, gltf2_scene: gltf2_io.Scene, blender_scene, export_settings):
+        try:
+            self.gather_scene_hook2(gltf2_scene, blender_scene, export_settings)
+        except:
+            import traceback
+            print(traceback.format_exc())
+
+    def gather_scene_hook2(self, gltf2_scene: gltf2_io.Scene, blender_scene, export_settings):
         if not self.properties.enabled:
             return
 
@@ -110,6 +119,94 @@ class glTF2ExportUserExtension:
             )
             gltf_A.children.append(jointInA)
 
+        if self.properties.reparent_bones and len(self.blenderBoneToGltfNode):
+            # Want to be able to find the parents of both the bones and
+            # the rigid body nodes which need remapping
+            gltfNodeToParent = {}
+            for n in gltf2_scene.nodes:
+                for c in n.children:
+                    self._buildParentMap(gltfNodeToParent, n, c)
+
+            for blender_bone in self.blenderBoneToGltfNode:
+                gltf_bone = self.blenderBoneToGltfNode[blender_bone]
+                constraint = self._getBoneChildConstraint(blender_bone)
+                if not constraint:
+                    continue
+                target = constraint.target
+                rb: bpy.types.Object = target if target.rigid_body else self._getParentCompoundBody(target)
+
+                gltf_bone_parent = gltfNodeToParent[gltf_bone]
+                gltf_rb = self.blenderNodeToGltfNode[rb]
+                gltf_target = self.blenderNodeToGltfNode[target]
+
+                blender_bone_parent = self.gltfNodeToBlender[gltf_bone_parent]
+                wFbp = self._worldMatrix(blender_bone_parent, export_settings)
+                rbFtarget = rb.matrix_world.inverted() @ target.matrix_world
+                # Calculate new local transforms
+                a = wFbp.inverted() @ rb.matrix_world
+                b = rbFtarget.inverted() @ a.inverted() @ wFbp.inverted() @ self._worldMatrix(blender_bone, export_settings)
+
+                a_trs = a.decompose()
+                gltf_rb.translation = [x for x in self.__convert_swizzle_location(a_trs[0], export_settings)]
+                gltf_rb.rotation = self._serializeQuaternion(self.__convert_swizzle_rotation(a_trs[1], export_settings))
+                gltf_rb.scale = [x for x in self.__convert_swizzle_scale(a_trs[2], export_settings)]
+
+                b_trs = b.decompose()
+                gltf_bone.translation = [x for x in self.__convert_swizzle_location(b_trs[0], export_settings)]
+                gltf_bone.rotation = self._serializeQuaternion(self.__convert_swizzle_rotation(b_trs[1], export_settings))
+                gltf_bone.scale = [x for x in self.__convert_swizzle_scale(b_trs[2], export_settings)]
+
+                # In gltf_bone_parent, replace gltf_bone with gltf_rb
+                idx_bone = gltf_bone_parent.children.index(gltf_bone)
+                gltf_bone_parent.children[idx_bone] = gltf_rb
+
+                # In gltf_target, add gltf_bone
+                gltf_target.children.append(gltf_bone)
+
+                # Remove gltf_rb from parent[gltf_rb].children
+                gltf_rb_parent = gltfNodeToParent.get(gltf_rb)
+                if gltf_rb_parent != None:
+                    gltf_rb_parent.children.remove(gltf_rb)
+                else:
+                    gltf2_scene.nodes.remove(gltf_rb)
+
+
+    def _worldMatrix(self, o: Union[bpy.types.Object, bpy.types.PoseBone], export_settings):
+        if type(o) == bpy.types.PoseBone:
+            vtree = export_settings['vtree']
+            # We want to determine the transform used by the exporter. There doesn't seem
+            # to be a way to get the vtree element from the info we have, so just do a
+            # linear search for now. TODO: Needs to be a much better way to do this!
+            for uuid in vtree.nodes:
+                node = vtree.nodes[uuid]
+                if node.blender_bone == o:
+                    return node.matrix_world
+            # We couldn't find the bone (shouldn't be possible?) just return _something_:
+            return o.matrix
+        return o.matrix_world
+
+    def _buildParentMap(self, nodeToParent: Dict[gltf2_io.Node, gltf2_io.Node], parent: gltf2_io.Node, node: gltf2_io.Node):
+        nodeToParent[node] = parent
+        for c in node.children:
+            self._buildParentMap(nodeToParent, node, c)
+
+    def _getBoneChildConstraint(self, bone: bpy.types.PoseBone) -> Optional[bpy.types.ChildOfConstraint]:
+        for constraint in bone.constraints:
+            if type(constraint) == bpy.types.ChildOfConstraint:
+                return constraint
+        return None
+
+    def gather_joint_hook(self, gltf2_node: gltf2_io.Node, blender_bone: bpy.types.PoseBone, export_settings):
+        if not self.properties.enabled or not self.properties.reparent_bones:
+            return
+
+        self.gltfNodeToBlender[gltf2_node] = blender_bone
+        constraint = self._getBoneChildConstraint(blender_bone)
+        if constraint != None:
+            target = constraint.target
+            if target.rigid_body or self._getParentCompoundBody(target) != None:
+                self.blenderBoneToGltfNode[blender_bone] = gltf2_node
+
     def gather_node_hook(self, gltf2_object, blender_object, export_settings):
         try:
             self.gather_node_hook2(gltf2_object, blender_object, export_settings)
@@ -119,6 +216,7 @@ class glTF2ExportUserExtension:
 
     def gather_node_hook2(self, gltf2_object, blender_object, export_settings):
         if self.properties.enabled:
+            self.gltfNodeToBlender[gltf2_object] = blender_object
             self.blenderNodeToGltfNode[blender_object] = gltf2_object
 
             if gltf2_object.extensions is None:
@@ -131,7 +229,7 @@ class glTF2ExportUserExtension:
             if (
                 blender_object.rigid_body
                 and blender_object.rigid_body.enabled
-                and not self._isPartOfCompound(blender_object)
+                and self._getParentCompoundBody(blender_object) == None
             ):
                 rb = blender_object.rigid_body
                 extraProps = blender_object.khr_physics_extra_props
@@ -214,14 +312,14 @@ class glTF2ExportUserExtension:
                     required=False,
                 )
 
-    def _isPartOfCompound(self, node):
+    def _getParentCompoundBody(self, node: bpy.types.Node) -> Optional[bpy.types.Node]:
         cur = node.parent
         while cur:
             if cur.rigid_body != None:
                 if cur.rigid_body.collision_shape == "COMPOUND":
-                    return True
+                    return cur
             cur = cur.parent
-        return False
+        return None
 
     def _generateMaterialRootObject(self, blender_object):
         mat = Material()
@@ -575,7 +673,7 @@ class glTF2ExportUserExtension:
         return ScopedMesh(node, export_settings)
 
     def _constructNode(self, name, translation, rotation, export_settings):
-        return Node(
+        return gltf2_io.Node(
             name=name,
             translation=[
                 x for x in self.__convert_swizzle_location(translation, export_settings)
