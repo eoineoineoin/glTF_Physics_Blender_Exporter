@@ -78,7 +78,10 @@ class KHR_rigid_body_importer_properties(bpy.types.PropertyGroup):
 
 class KHR_rigid_body_viewport_render:
     def __init__(self):
-        self.shader = gpu.shader.from_builtin("3D_UNIFORM_COLOR")
+        if not bpy.app.background:
+            self.shader = gpu.shader.from_builtin("3D_UNIFORM_COLOR")
+        else:
+            self.shader = None
 
     def _calcPerpNormalized(self, v):
         v4 = Vector(v.to_tuple() + (0.0,))
@@ -89,6 +92,8 @@ class KHR_rigid_body_viewport_render:
         return d0.xyz.normalized()
 
     def drawExtraPhysicsProperties(self):
+        if not self.shader:
+            return
         if not bpy.context.object:
             return
         if not bpy.context.object.rigid_body:
