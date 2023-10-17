@@ -59,7 +59,7 @@ class GLTF_PT_KHR_Rigid_Bodies_ExportExtensionPanel(bpy.types.Panel):
     bl_region_type = "TOOL_PROPS"
     bl_label = "Enabled"
     bl_parent_id = "GLTF_PT_export_user_extensions"
-    bl_options = set()
+    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):
@@ -73,11 +73,12 @@ class GLTF_PT_KHR_Rigid_Bodies_ExportExtensionPanel(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        layout.use_property_split = False
+        layout.use_property_split = True
         layout.use_property_decorate = False  # No animation.
 
         props = bpy.context.scene.khr_physics_exporter_props
         layout.active = props.enabled
+        layout.prop(props, "reparent_bones")
 
 
 class GLTF_PT_KHR_Rigid_Bodies_ImportExtensionPanel(bpy.types.Panel):

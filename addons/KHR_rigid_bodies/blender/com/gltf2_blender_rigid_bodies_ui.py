@@ -112,7 +112,7 @@ class KHR_rigid_body_exporter_properties(bpy.types.PropertyGroup):
     )
 
     reparent_bones: bpy.props.BoolProperty(
-        name="reparent_rb_bones",
+        name="Reparent RB Bones",
         description="Reparent constrained bones to children of rigid bodies",
         default=True,
     )
