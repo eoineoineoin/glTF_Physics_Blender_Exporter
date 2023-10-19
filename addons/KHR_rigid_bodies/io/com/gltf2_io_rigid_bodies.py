@@ -17,6 +17,11 @@ physics_material_combine_types = [
     ("MULTIPLY", "Multiply", "", 3),
 ]
 
+physics_drive_mode_types = [
+    ("FORCE", "Force", "", 0),
+    ("ACCELERATION", "Acceleration", "", 1),
+]
+
 
 class Material:
     static_friction: Optional[float] = None
@@ -206,7 +211,9 @@ class Motion:
 
 
 class JointDrive:
-    # TODO.eoin Should be 1/2/3/4D targets
+    type: str
+    mode: str
+    axis: int
     position_target: Optional[float] = None
     velocity_target: Optional[float] = None
     max_force: Optional[float] = None
@@ -215,8 +222,16 @@ class JointDrive:
     extensions: Optional[Dict[str, Any]] = None
     extras: Any = None
 
+    def __init__(self, axisId: int, isLinear: bool, isAcceleration: bool):
+        self.type = "linear" if isLinear else "angular"
+        self.mode = "acceleration" if isAcceleration else "force"
+        self.axis = axisId
+
     def to_dict(self):
         result = {}
+        result["type"] = from_union([from_str, from_none], self.type)
+        result["mode"] = from_union([from_str, from_none], self.mode)
+        result["axis"] = from_union([from_int, from_none], self.axis)
         result["positionTarget"] = from_union(
             [from_float, from_none], self.position_target
         )
@@ -235,7 +250,12 @@ class JointDrive:
     @staticmethod
     def from_dict(obj):
         assert isinstance(obj, dict)
-        drive = JointDrive()
+        type = from_union([from_str, from_none], obj.get("type"))
+        mode = from_union([from_str, from_none], obj.get("mode"))
+        axis = from_union([from_int, from_none], obj.get("axis"))
+        drive = JointDrive(
+            axis, isLinear=(type == "linear"), isAcceleration=(mode == "acceleration")
+        )
         drive.position_target = from_union(
             [from_float, from_none], obj.get("positionTarget")
         )
@@ -260,7 +280,6 @@ class JointLimit:
     max_limit: Optional[float] = None
     spring_constant: Optional[float] = None
     spring_damping: Optional[float] = None
-    drive: Optional[JointDrive] = None
     extensions: Optional[Dict[str, Any]] = None
     extras: Any = None
 
@@ -296,9 +315,6 @@ class JointLimit:
         result["springDamping"] = from_union(
             [from_float, from_none], self.spring_damping
         )
-        result["drive"] = from_union(
-            [lambda d: to_class(JointDrive, d), from_none], self.drive
-        )
         result["extensions"] = from_union(
             [lambda x: from_dict(from_extension, x), from_none], self.extensions
         )
@@ -323,7 +339,6 @@ class JointLimit:
         limit.spring_damping = from_union(
             [from_float, from_none], obj.get("springDamping")
         )
-        limit.drive = from_union([JointDrive.from_dict, from_none], obj.get("drive"))
         limit.extensions = from_union(
             [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
             obj.get("extensions"),
@@ -332,20 +347,25 @@ class JointLimit:
         return limit
 
 
-class JointLimitSet:
+class JointDescription:
     limits: list[JointLimit]
+    drives: Optional[list[JointDrive]] = None
     extensions: Optional[Dict[str, Any]] = None
     extras: Any = None
 
     def __init__(self, limits: Optional[list[JointLimit]] = None):
         super().__init__()
-        self.joint_limits = limits if limits != None else list()
+        self.limits = limits if limits != None else list()
 
     def to_dict(self):
         result = {}
         result["limits"] = from_union(
             [lambda x: from_list(lambda l: to_class(JointLimit, l), x), from_none],
-            self.joint_limits,
+            self.limits,
+        )
+        result["drives"] = from_union(
+            [lambda x: from_list(lambda d: to_class(JointDrive, d), x), from_none],
+            self.drives,
         )
         result["extensions"] = from_union(
             [lambda x: from_dict(from_extension, x), from_none], self.extensions
@@ -356,9 +376,12 @@ class JointLimitSet:
     @staticmethod
     def from_dict(obj):
         assert isinstance(obj, dict)
-        result = JointLimitSet()
-        result.joint_limits = from_union(
+        result = JointDescription()
+        result.limits = from_union(
             [lambda x: from_list(JointLimit.from_dict, x), from_none], obj.get("limits")
+        )
+        result.drives = from_union(
+            [lambda x: from_list(JointDrive.from_dict, x), from_none], obj.get("drives")
         )
         result.extensions = from_union(
             [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
@@ -439,7 +462,7 @@ class Trigger:
 
 class Joint:
     connected_node: Optional[Union[int, Node]] = None
-    joint_limits: Optional[Union[int, ChildOfRootExtension]] = None
+    joint: Optional[Union[int, ChildOfRootExtension]] = None
     enable_collision: Optional[bool] = None
     extensions: Optional[Dict[str, Any]] = None
     extras: Any = None
@@ -450,7 +473,7 @@ class Joint:
     def to_dict(self):
         result = {}
         result["connectedNode"] = self.connected_node
-        result["jointLimits"] = self.joint_limits
+        result["joint"] = self.joint
         result["enableCollision"] = from_union(
             [from_bool, from_none], self.enable_collision
         )
@@ -469,7 +492,7 @@ class Joint:
         joint.connected_node = from_union(
             [from_int, from_none], obj.get("connectedNode")
         )
-        joint.joint_limits = from_union([from_int, from_none], obj.get("jointLimits"))
+        joint.joint = from_union([from_int, from_none], obj.get("joint"))
         joint.enable_collision = from_union(
             [from_bool, from_none], obj.get("enableCollision")
         )
@@ -534,7 +557,7 @@ class RigidBodiesNodeExtension:
 
 class RigidBodiesGlTFExtension:
     materials: list[Material] = []
-    joints: list[JointLimitSet] = []
+    joints: list[JointDescription] = []
     collision_filters: list[CollisionFilter] = []
     extensions: Optional[Dict[str, Any]] = None
     extras: Any = None
@@ -553,8 +576,8 @@ class RigidBodiesGlTFExtension:
                 lambda x: to_class(Material, x), self.materials
             )
         if len(self.joints):
-            result["physicsMaterials"] = from_list(
-                lambda x: to_class(JointLimitSet, x), self.joints
+            result["physicsJoints"] = from_list(
+                lambda x: to_class(JointDescription, x), self.joints
             )
         if len(self.collision_filters):
             result["physicsMaterials"] = from_list(
@@ -575,8 +598,8 @@ class RigidBodiesGlTFExtension:
             obj.get("physicsMaterials"),
         )
         result.joints = from_union(
-            [lambda x: from_list(JointLimitSet.from_dict, x), from_none],
-            obj.get("physicsJointLimits"),
+            [lambda x: from_list(JointDescription.from_dict, x), from_none],
+            obj.get("physicsJoints"),
         )
         result.collision_filters = from_union(
             [lambda x: from_list(CollisionFilter.from_dict, x), from_none],

@@ -59,7 +59,7 @@ class GLTF_PT_KHR_Rigid_Bodies_ExportExtensionPanel(bpy.types.Panel):
     bl_region_type = "TOOL_PROPS"
     bl_label = "Enabled"
     bl_parent_id = "GLTF_PT_export_user_extensions"
-    bl_options = {'DEFAULT_CLOSED'}
+    bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
     def poll(cls, context):

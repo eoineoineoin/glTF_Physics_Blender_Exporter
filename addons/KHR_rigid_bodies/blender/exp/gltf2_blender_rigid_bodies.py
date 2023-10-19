@@ -53,14 +53,19 @@ class glTF2ExportUserExtension:
             )
             gltf2_plan.extensions[collisionGeom_Extension_Name] = cgRootExtension
 
-    def gather_scene_hook(self, gltf2_scene: gltf2_io.Scene, blender_scene, export_settings):
+    def gather_scene_hook(
+        self, gltf2_scene: gltf2_io.Scene, blender_scene, export_settings
+    ):
         try:
             self.gather_scene_hook2(gltf2_scene, blender_scene, export_settings)
         except:
             import traceback
+
             print(traceback.format_exc())
 
-    def gather_scene_hook2(self, gltf2_scene: gltf2_io.Scene, blender_scene, export_settings):
+    def gather_scene_hook2(
+        self, gltf2_scene: gltf2_io.Scene, blender_scene, export_settings
+    ):
         if not self.properties.enabled:
             return
 
@@ -133,7 +138,9 @@ class glTF2ExportUserExtension:
                 if not constraint:
                     continue
                 target = constraint.target
-                rb: bpy.types.Object = target if target.rigid_body else self._getParentCompoundBody(target)
+                rb: bpy.types.Object = (
+                    target if target.rigid_body else self._getParentCompoundBody(target)
+                )
 
                 gltf_bone_parent = gltfNodeToParent[gltf_bone]
                 gltf_rb = self.blenderNodeToGltfNode[rb]
@@ -144,17 +151,36 @@ class glTF2ExportUserExtension:
                 rbFtarget = rb.matrix_world.inverted() @ target.matrix_world
                 # Calculate new local transforms
                 a = wFbp.inverted() @ rb.matrix_world
-                b = rbFtarget.inverted() @ a.inverted() @ wFbp.inverted() @ self._worldMatrix(blender_bone, export_settings)
+                b = (
+                    rbFtarget.inverted()
+                    @ a.inverted()
+                    @ wFbp.inverted()
+                    @ self._worldMatrix(blender_bone, export_settings)
+                )
 
                 a_trs = a.decompose()
-                gltf_rb.translation = [x for x in self.__convert_swizzle_location(a_trs[0], export_settings)]
-                gltf_rb.rotation = self._serializeQuaternion(self.__convert_swizzle_rotation(a_trs[1], export_settings))
-                gltf_rb.scale = [x for x in self.__convert_swizzle_scale(a_trs[2], export_settings)]
+                gltf_rb.translation = [
+                    x
+                    for x in self.__convert_swizzle_location(a_trs[0], export_settings)
+                ]
+                gltf_rb.rotation = self._serializeQuaternion(
+                    self.__convert_swizzle_rotation(a_trs[1], export_settings)
+                )
+                gltf_rb.scale = [
+                    x for x in self.__convert_swizzle_scale(a_trs[2], export_settings)
+                ]
 
                 b_trs = b.decompose()
-                gltf_bone.translation = [x for x in self.__convert_swizzle_location(b_trs[0], export_settings)]
-                gltf_bone.rotation = self._serializeQuaternion(self.__convert_swizzle_rotation(b_trs[1], export_settings))
-                gltf_bone.scale = [x for x in self.__convert_swizzle_scale(b_trs[2], export_settings)]
+                gltf_bone.translation = [
+                    x
+                    for x in self.__convert_swizzle_location(b_trs[0], export_settings)
+                ]
+                gltf_bone.rotation = self._serializeQuaternion(
+                    self.__convert_swizzle_rotation(b_trs[1], export_settings)
+                )
+                gltf_bone.scale = [
+                    x for x in self.__convert_swizzle_scale(b_trs[2], export_settings)
+                ]
 
                 # In gltf_bone_parent, replace gltf_bone with gltf_rb
                 idx_bone = gltf_bone_parent.children.index(gltf_bone)
@@ -170,10 +196,11 @@ class glTF2ExportUserExtension:
                 else:
                     gltf2_scene.nodes.remove(gltf_rb)
 
-
-    def _worldMatrix(self, o: Union[bpy.types.Object, bpy.types.PoseBone], export_settings):
+    def _worldMatrix(
+        self, o: Union[bpy.types.Object, bpy.types.PoseBone], export_settings
+    ):
         if type(o) == bpy.types.PoseBone:
-            vtree = export_settings['vtree']
+            vtree = export_settings["vtree"]
             # We want to determine the transform used by the exporter. There doesn't seem
             # to be a way to get the vtree element from the info we have, so just do a
             # linear search for now. TODO: Needs to be a much better way to do this!
@@ -185,18 +212,30 @@ class glTF2ExportUserExtension:
             return o.matrix
         return o.matrix_world
 
-    def _buildParentMap(self, nodeToParent: Dict[gltf2_io.Node, gltf2_io.Node], parent: gltf2_io.Node, node: gltf2_io.Node):
+    def _buildParentMap(
+        self,
+        nodeToParent: Dict[gltf2_io.Node, gltf2_io.Node],
+        parent: gltf2_io.Node,
+        node: gltf2_io.Node,
+    ):
         nodeToParent[node] = parent
         for c in node.children:
             self._buildParentMap(nodeToParent, node, c)
 
-    def _getBoneChildConstraint(self, bone: bpy.types.PoseBone) -> Optional[bpy.types.ChildOfConstraint]:
+    def _getBoneChildConstraint(
+        self, bone: bpy.types.PoseBone
+    ) -> Optional[bpy.types.ChildOfConstraint]:
         for constraint in bone.constraints:
             if type(constraint) == bpy.types.ChildOfConstraint:
                 return constraint
         return None
 
-    def gather_joint_hook(self, gltf2_node: gltf2_io.Node, blender_bone: bpy.types.PoseBone, export_settings):
+    def gather_joint_hook(
+        self,
+        gltf2_node: gltf2_io.Node,
+        blender_bone: bpy.types.PoseBone,
+        export_settings,
+    ):
         if not self.properties.enabled or not self.properties.reparent_bones:
             return
 
@@ -212,6 +251,7 @@ class glTF2ExportUserExtension:
             self.gather_node_hook2(gltf2_object, blender_object, export_settings)
         except:
             import traceback
+
             print(traceback.format_exc())
 
     def gather_node_hook2(self, gltf2_object, blender_object, export_settings):
@@ -353,53 +393,52 @@ class glTF2ExportUserExtension:
         else:
             X, Y, Z = (0, 1, 2)
 
-        limitSet = JointLimitSet()
+        jointDesc = JointDescription()
         if joint.type == "FIXED":
-            limitSet.joint_limits.append(JointLimit.Linear([X, Y, Z], 0, 0))
-            limitSet.joint_limits.append(JointLimit.Angular([X, Y, Z], 0, 0))
+            jointDesc.limits.append(JointLimit.Linear([X, Y, Z], 0, 0))
+            jointDesc.limits.append(JointLimit.Angular([X, Y, Z], 0, 0))
         elif joint.type == "POINT":
-            limitSet.joint_limits.append(JointLimit.Linear([X, Y, Z], 0, 0))
+            jointDesc.limits.append(JointLimit.Linear([X, Y, Z], 0, 0))
         elif joint.type == "HINGE":
-            limitSet.joint_limits.append(JointLimit.Linear([X, Y, Z], 0, 0))
+            jointDesc.limits.append(JointLimit.Linear([X, Y, Z], 0, 0))
 
             # Blender always specifies hinge about Z
-            limitSet.joint_limits.append(JointLimit.Angular([X, Y], 0, 0))
+            jointDesc.limits.append(JointLimit.Angular([X, Y], 0, 0))
 
             if joint.use_limit_ang_z:
                 angLimit = JointLimit.Angular([Z])
                 angLimit.min_limit = joint.limit_ang_z_lower
                 angLimit.max_limit = joint.limit_ang_z_upper
-                limitSet.joint_limits.append(angLimit)
+                jointDesc.limits.append(angLimit)
         elif joint.type == "SLIDER":
-            limitSet.joint_limits.append(JointLimit.Angular([X, Y, Z], 0, 0))
+            jointDesc.limits.append(JointLimit.Angular([X, Y, Z], 0, 0))
 
             # Blender always specifies slider limit along X
-            limitSet.joint_limits.append(JointLimit.Linear([Y, Z], 0, 0))
+            jointDesc.limits.append(JointLimit.Linear([Y, Z], 0, 0))
 
             if joint.use_limit_lin_x:
                 linLimit = JointLimit.Linear([X])
                 linLimit.min_limit = joint.limit_lin_x_lower
                 linLimit.max_limit = joint.limit_lin_x_upper
-                limitSet.joint_limits.append(linLimit)
+                jointDesc.limits.append(linLimit)
         elif joint.type == "PISTON":
             # Blender always specifies slider limit along/around X
-            limitSet.joint_limits.append(JointLimit.Angular([Y, Z], 0, 0))
-            limitSet.joint_limits.append(JointLimit.Linear([Y, Z], 0, 0))
+            jointDesc.limits.append(JointLimit.Angular([Y, Z], 0, 0))
+            jointDesc.limits.append(JointLimit.Linear([Y, Z], 0, 0))
 
             if joint.use_limit_lin_x:
                 linLimit = JointLimit.Linear([X])
                 linLimit.min_limit = joint.limit_lin_x_lower
                 linLimit.max_limit = joint.limit_lin_x_upper
-                limitSet.joint_limits.append(linLimit)
+                jointDesc.limits.append(linLimit)
             if joint.use_limit_ang_x:
                 angLimit = JointLimit.Angular([X])
                 angLimit.min_limit = joint.limit_ang_x_lower
                 angLimit.max_limit = joint.limit_ang_x_upper
-                limitSet.joint_limits.append(angLimit)
+                jointDesc.limits.append(angLimit)
         elif joint.type in ("GENERIC", "GENERIC_SPRING"):
             # Blender always uses 1D constraints
-            linDrives = [self._makeDrive(joint_extra, linear=True, axisname=a) for a in "xyz"]
-            if joint.use_limit_lin_x or linDrives[0] != None:
+            if joint.use_limit_lin_x:
                 linLimit = JointLimit.Linear([X])
                 if joint.use_limit_lin_x:
                     linLimit.min_limit = joint.limit_lin_x_lower
@@ -407,9 +446,8 @@ class glTF2ExportUserExtension:
                     if joint.type == "GENERIC_SPRING" and joint.use_spring_x:
                         linLimit.spring_constant = joint.spring_stiffness_x
                         linLimit.spring_damping = joint.spring_damping_x
-                linLimit.drive = linDrives[0]
-                limitSet.joint_limits.append(linLimit)
-            if joint.use_limit_lin_y or linDrives[1] != None:
+                jointDesc.limits.append(linLimit)
+            if joint.use_limit_lin_y:
                 linLimit = JointLimit.Linear([Y])
                 if joint.use_limit_lin_y:
                     if export_settings["gltf_yup"]:
@@ -421,9 +459,8 @@ class glTF2ExportUserExtension:
                     if joint.type == "GENERIC_SPRING" and joint.use_spring_y:
                         linLimit.spring_constant = joint.spring_stiffness_y
                         linLimit.spring_damping = joint.spring_damping_y
-                linLimit.drive = linDrives[1]
-                limitSet.joint_limits.append(linLimit)
-            if joint.use_limit_lin_z or linDrives[2] != None:
+                jointDesc.limits.append(linLimit)
+            if joint.use_limit_lin_z:
                 linLimit = JointLimit.Linear([Z])
                 if joint.use_limit_lin_z:
                     linLimit.min_limit = joint.limit_lin_z_lower
@@ -431,11 +468,8 @@ class glTF2ExportUserExtension:
                     if joint.type == "GENERIC_SPRING" and joint.use_spring_z:
                         linLimit.spring_constant = joint.spring_stiffness_z
                         linLimit.spring_damping = joint.spring_damping_z
-                linLimit.drive = linDrives[2]
-                limitSet.joint_limits.append(linLimit)
-
-            angDrives = [self._makeDrive(joint_extra, linear=False, axisname=a) for a in "xyz"]
-            if joint.use_limit_ang_x or angDrives[0] != None:
+                jointDesc.limits.append(linLimit)
+            if joint.use_limit_ang_x:
                 angLimit = JointLimit.Angular([X])
                 if joint.use_limit_ang_x:
                     angLimit.min_limit = joint.limit_ang_x_lower
@@ -443,9 +477,8 @@ class glTF2ExportUserExtension:
                     if joint.type == "GENERIC_SPRING" and joint.use_spring_ang_x:
                         angLimit.spring_constant = joint.spring_stiffness_ang_x
                         angLimit.spring_damping = joint.spring_damping_ang_x
-                angLimit.drive = angDrives[0]
-                limitSet.joint_limits.append(angLimit)
-            if joint.use_limit_ang_y or angDrives[1] != None:
+                jointDesc.limits.append(angLimit)
+            if joint.use_limit_ang_y:
                 angLimit = JointLimit.Angular([Y])
                 if joint.use_limit_ang_y:
                     if export_settings["gltf_yup"]:
@@ -457,9 +490,8 @@ class glTF2ExportUserExtension:
                     if joint.type == "GENERIC_SPRING" and joint.use_spring_ang_y:
                         angLimit.spring_constant = joint.spring_stiffness_ang_y
                         angLimit.spring_damping = joint.spring_damping_ang_y
-                angLimit.drive = angDrives[1]
-                limitSet.joint_limits.append(angLimit)
-            if joint.use_limit_ang_z or angDrives[2] != None:
+                jointDesc.limits.append(angLimit)
+            if joint.use_limit_ang_z:
                 angLimit = JointLimit.Angular([Z])
                 if joint.use_limit_ang_z:
                     angLimit.min_limit = joint.limit_ang_z_lower
@@ -467,42 +499,60 @@ class glTF2ExportUserExtension:
                     if joint.type == "GENERIC_SPRING" and joint.use_spring_ang_z:
                         angLimit.spring_constant = joint.spring_stiffness_ang_z
                         angLimit.spring_damping = joint.spring_damping_ang_z
-                angLimit.drive = angDrives[2]
-                limitSet.joint_limits.append(angLimit)
+                jointDesc.limits.append(angLimit)
 
-        jointData.joint_limits = self.ChildOfRootExtension(
+            jointDesc.drives = self._makeDrives(joint_extra, export_settings)
+
+        jointData.joint = self.ChildOfRootExtension(
             name=rigidBody_Extension_Name,
-            path=["physicsJointLimits"],
-            extension=limitSet.to_dict(),
+            path=["physicsJoints"],
+            extension=jointDesc.to_dict(),
             required=False,
         )
         return jointData
 
     @staticmethod
-    def _makeDrive(joint_extra, linear: bool, axisname: str) -> Optional[JointDrive]:
-        assert axisname in ["x", "y", "z"]
-        typeprefix = "lin" if linear else "ang"
+    def _makeDrives(joint_extra, export_settings) -> Optional[list[JointDrive]]:
+        drives = []
+        axisIndices = (0, 2, 1) if export_settings["gltf_yup"] else (0, 1, 2)
+        targetScales = (1, -1, 1) if export_settings["gltf_yup"] else (1, 1, 1)
 
-        drive_field_name = "use_%s_drive_%s" % (typeprefix, axisname)
-        if not getattr(joint_extra, drive_field_name):
-            return None
-        drive = JointDrive()
-        drive.position_target = getattr(
-            joint_extra, "%s_%s_drive_pos_target" % (typeprefix, axisname)
-        )
-        drive.velocity_target = getattr(
-            joint_extra, "%s_%s_drive_vel_target" % (typeprefix, axisname)
-        )
-        drive.max_force = getattr(
-            joint_extra, "%s_%s_drive_max_force" % (typeprefix, axisname)
-        )
-        drive.stiffness = getattr(
-            joint_extra, "%s_%s_drive_stiffness" % (typeprefix, axisname)
-        )
-        drive.damping = getattr(
-            joint_extra, "%s_%s_drive_damping" % (typeprefix, axisname)
-        )
-        return drive
+        for typeprefix in ("lin", "ang"):
+            for axIdx, scale, axisname in zip(axisIndices, targetScales, "xyz"):
+                drive_field_name = "use_%s_drive_%s" % (typeprefix, axisname)
+                if not getattr(joint_extra, drive_field_name):
+                    continue
+                drive_mode = getattr(
+                    joint_extra, "%s_%s_drive_mode" % (typeprefix, axisname)
+                )
+                isAcceleration = drive_mode == "ACCELERATION"
+
+                drive = JointDrive(
+                    axIdx, isLinear=(typeprefix == "lin"), isAcceleration=isAcceleration
+                )
+                drive.position_target = scale * getattr(
+                    joint_extra, "%s_%s_drive_pos_target" % (typeprefix, axisname)
+                )
+                drive.velocity_target = scale * getattr(
+                    joint_extra, "%s_%s_drive_vel_target" % (typeprefix, axisname)
+                )
+
+                forceLimited = getattr(
+                    joint_extra, "%s_%s_drive_force_limited" % (typeprefix, axisname)
+                )
+                if forceLimited:
+                    drive.max_force = getattr(
+                        joint_extra, "%s_%s_drive_max_force" % (typeprefix, axisname)
+                    )
+
+                drive.stiffness = getattr(
+                    joint_extra, "%s_%s_drive_stiffness" % (typeprefix, axisname)
+                )
+                drive.damping = getattr(
+                    joint_extra, "%s_%s_drive_damping" % (typeprefix, axisname)
+                )
+                drives.append(drive)
+        return drives if len(drives) else None
 
     def _generateFilterRootObject(self, node):
         # Blender's native collision filtering has less functionality than the spec enables:

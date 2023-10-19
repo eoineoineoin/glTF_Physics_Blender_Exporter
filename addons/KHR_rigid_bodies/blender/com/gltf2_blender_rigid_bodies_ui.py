@@ -4,7 +4,10 @@ from gpu_extras.batch import batch_for_shader
 from mathutils import Quaternion, Vector, Euler
 import math
 
-from ...io.com.gltf2_io_rigid_bodies import physics_material_combine_types
+from ...io.com.gltf2_io_rigid_bodies import (
+    physics_material_combine_types,
+    physics_drive_mode_types,
+)
 
 
 class KHR_rigid_body_scene_properties(bpy.types.PropertyGroup):
@@ -62,43 +65,79 @@ class KHR_rigid_body_node_properties(bpy.types.PropertyGroup):
 
 class KHR_rigid_body_constraint_node_properties(bpy.types.PropertyGroup):
     use_ang_drive_x: bpy.props.BoolProperty(name="X Axis Drive", default=False)
+    ang_x_drive_mode: bpy.props.EnumProperty(
+        name="Force mode", items=physics_drive_mode_types
+    )
     ang_x_drive_pos_target: bpy.props.FloatProperty(name="Position Target", default=0)
     ang_x_drive_vel_target: bpy.props.FloatProperty(name="Velocity Target", default=0)
+    ang_x_drive_force_limited: bpy.props.BoolProperty(
+        name="Force limited", default=False
+    )
     ang_x_drive_max_force: bpy.props.FloatProperty(name="Max force", default=0)
     ang_x_drive_stiffness: bpy.props.FloatProperty(name="Stiffness", default=0)
     ang_x_drive_damping: bpy.props.FloatProperty(name="Damping", default=0)
 
     use_ang_drive_y: bpy.props.BoolProperty(name="Y Axis Drive", default=False)
+    ang_y_drive_mode: bpy.props.EnumProperty(
+        name="Force mode", items=physics_drive_mode_types
+    )
     ang_y_drive_pos_target: bpy.props.FloatProperty(name="Position Target", default=0)
     ang_y_drive_vel_target: bpy.props.FloatProperty(name="Velocity Target", default=0)
+    ang_y_drive_force_limited: bpy.props.BoolProperty(
+        name="Force limited", default=False
+    )
     ang_y_drive_max_force: bpy.props.FloatProperty(name="Max force", default=0)
     ang_y_drive_stiffness: bpy.props.FloatProperty(name="Stiffness", default=0)
     ang_y_drive_damping: bpy.props.FloatProperty(name="Damping", default=0)
 
     use_ang_drive_z: bpy.props.BoolProperty(name="Z Axis Drive", default=False)
+    ang_z_drive_mode: bpy.props.EnumProperty(
+        name="Force mode", items=physics_drive_mode_types
+    )
     ang_z_drive_pos_target: bpy.props.FloatProperty(name="Position Target", default=0)
     ang_z_drive_vel_target: bpy.props.FloatProperty(name="Velocity Target", default=0)
+    ang_z_drive_force_limited: bpy.props.BoolProperty(
+        name="Force limited", default=False
+    )
     ang_z_drive_max_force: bpy.props.FloatProperty(name="Max force", default=0)
     ang_z_drive_stiffness: bpy.props.FloatProperty(name="Stiffness", default=0)
     ang_z_drive_damping: bpy.props.FloatProperty(name="Damping", default=0)
 
     use_lin_drive_x: bpy.props.BoolProperty(name="X Axis Drive", default=False)
+    lin_x_drive_mode: bpy.props.EnumProperty(
+        name="Force mode", items=physics_drive_mode_types
+    )
     lin_x_drive_pos_target: bpy.props.FloatProperty(name="Position Target", default=0)
     lin_x_drive_vel_target: bpy.props.FloatProperty(name="Velocity Target", default=0)
+    lin_x_drive_force_limited: bpy.props.BoolProperty(
+        name="Force limited", default=False
+    )
     lin_x_drive_max_force: bpy.props.FloatProperty(name="Max force", default=0)
     lin_x_drive_stiffness: bpy.props.FloatProperty(name="Stiffness", default=0)
     lin_x_drive_damping: bpy.props.FloatProperty(name="Damping", default=0)
 
     use_lin_drive_y: bpy.props.BoolProperty(name="Y Axis Drive", default=False)
+    lin_y_drive_mode: bpy.props.EnumProperty(
+        name="Force mode", items=physics_drive_mode_types
+    )
     lin_y_drive_pos_target: bpy.props.FloatProperty(name="Position Target", default=0)
     lin_y_drive_vel_target: bpy.props.FloatProperty(name="Velocity Target", default=0)
+    lin_y_drive_force_limited: bpy.props.BoolProperty(
+        name="Force limited", default=False
+    )
     lin_y_drive_max_force: bpy.props.FloatProperty(name="Max force", default=0)
     lin_y_drive_stiffness: bpy.props.FloatProperty(name="Stiffness", default=0)
     lin_y_drive_damping: bpy.props.FloatProperty(name="Damping", default=0)
 
     use_lin_drive_z: bpy.props.BoolProperty(name="Z Axis Drive", default=False)
+    lin_z_drive_mode: bpy.props.EnumProperty(
+        name="Force mode", items=physics_drive_mode_types
+    )
     lin_z_drive_pos_target: bpy.props.FloatProperty(name="Position Target", default=0)
     lin_z_drive_vel_target: bpy.props.FloatProperty(name="Velocity Target", default=0)
+    lin_z_drive_force_limited: bpy.props.BoolProperty(
+        name="Force limited", default=False
+    )
     lin_z_drive_max_force: bpy.props.FloatProperty(name="Max force", default=0)
     lin_z_drive_stiffness: bpy.props.FloatProperty(name="Stiffness", default=0)
     lin_z_drive_damping: bpy.props.FloatProperty(name="Damping", default=0)
@@ -553,13 +592,18 @@ class KHR_PT_rigid_body_constraint_drives(KHR_PT_rigid_body_constraint_panel_bas
         for ax in ["x", "y", "z"]:
             col = uilayout.column()
             drive_field_name = "use_%s_drive_%s" % (typeprefix, ax)
+            forcelimited_field_name = "%s_%s_drive_force_limited" % (typeprefix, ax)
             col.prop(joint, drive_field_name)
 
             sub = col.column(align=True)
             sub.active = getattr(joint, drive_field_name)
+            sub.prop(joint, "%s_%s_drive_mode" % (typeprefix, ax))
             sub.prop(joint, "%s_%s_drive_pos_target" % (typeprefix, ax))
             sub.prop(joint, "%s_%s_drive_vel_target" % (typeprefix, ax))
-            sub.prop(joint, "%s_%s_drive_max_force" % (typeprefix, ax))
+            sub.prop(joint, forcelimited_field_name)
+            subsub = sub.column(align=True)
+            subsub.active = getattr(joint, forcelimited_field_name)
+            subsub.prop(joint, "%s_%s_drive_max_force" % (typeprefix, ax))
             sub.prop(joint, "%s_%s_drive_stiffness" % (typeprefix, ax))
             sub.prop(joint, "%s_%s_drive_damping" % (typeprefix, ax))
 

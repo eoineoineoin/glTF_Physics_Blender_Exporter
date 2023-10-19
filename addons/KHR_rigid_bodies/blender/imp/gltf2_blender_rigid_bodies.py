@@ -67,6 +67,7 @@ class glTF2ImportUserExtension:
             self.gather_import_node_after_hook_2(vnode, gltf_node, blender_object, gltf)
         except:
             import traceback
+
             print(traceback.format_exc())
 
     def gather_import_node_after_hook_2(self, vnode, gltf_node, blender_object, gltf):
@@ -209,9 +210,24 @@ class glTF2ImportUserExtension:
                     not nodeExt.joint.enable_collision
                 )
 
-            assert nodeExt.joint.joint_limits != None
-            limitSet = self.rbExt.joints[cast(int, nodeExt.joint.joint_limits)]
-            for limit in limitSet.joint_limits:
+            assert nodeExt.joint.joint != None
+            jointDesc = self.rbExt.joints[cast(int, nodeExt.joint.joint)]
+            if jointDesc.drives:
+                for drive in jointDesc.drives:
+                    isLinear = drive.type == "linear"
+                    isAcceleration = drive.mode == "acceleration"
+                    axisname = "xzy"[drive.axis]
+                    basisscale = (1.0, 1.0, -1.0)[drive.axis]
+                    self._populateDrive(
+                        joint_extra,
+                        drive,
+                        linear=isLinear,
+                        axisname=axisname,
+                        basisscale=basisscale,
+                        acceleration=isAcceleration,
+                    )
+
+            for limit in jointDesc.limits:
                 use_limit = limit.min_limit != None or limit.max_limit != None
                 minLimit = limit.min_limit if limit.min_limit != None else 0
                 maxLimit = limit.max_limit if limit.max_limit != None else 0
@@ -228,17 +244,15 @@ class glTF2ImportUserExtension:
                                 joint.use_spring_x = True
                                 joint.spring_stiffness_x = spring
                                 joint.spring_damping_x = damping
-                            self._populateDrive(joint_extra, limit.drive, linear=True, axisname="x")
                         if axIdx == Y:
                             joint.use_limit_lin_y = use_limit
-                            joint.limit_lin_y_lower = minLimit
-                            joint.limit_lin_y_upper = maxLimit
+                            joint.limit_lin_y_upper = -minLimit
+                            joint.limit_lin_y_lower = -maxLimit
                             if spring != None or damping:
                                 joint.type = "GENERIC_SPRING"
                                 joint.use_spring_y = True
                                 joint.spring_stiffness_y = spring
                                 joint.spring_damping_y = damping
-                            self._populateDrive(joint_extra, limit.drive, linear=True, axisname="y")
                         if axIdx == Z:
                             joint.use_limit_lin_z = use_limit
                             joint.limit_lin_z_lower = minLimit
@@ -248,7 +262,6 @@ class glTF2ImportUserExtension:
                                 joint.use_spring_z = True
                                 joint.spring_stiffness_z = spring
                                 joint.spring_damping_z = damping
-                            self._populateDrive(joint_extra, limit.drive, linear=True, axisname="z")
                 if limit.angular_axes != None:
                     for axIdx in limit.angular_axes:
                         if axIdx == X:
@@ -260,17 +273,15 @@ class glTF2ImportUserExtension:
                                 joint.use_spring_ang_x = True
                                 joint.spring_stiffness_ang_x = spring
                                 joint.spring_damping_ang_x = damping
-                            self._populateDrive(joint_extra, limit.drive, linear=False, axisname="x")
                         if axIdx == Y:
                             joint.use_limit_ang_y = use_limit
-                            joint.limit_ang_y_lower = minLimit
-                            joint.limit_ang_y_upper = maxLimit
+                            joint.limit_ang_y_upper = -minLimit
+                            joint.limit_ang_y_lower = -maxLimit
                             if spring != None or damping:
                                 joint.type = "GENERIC_SPRING"
                                 joint.use_spring_ang_y = True
                                 joint.spring_stiffness_ang_y = spring
                                 joint.spring_damping_ang_y = damping
-                            self._populateDrive(joint_extra, limit.drive, linear=False, axisname="y")
                         if axIdx == Z:
                             joint.use_limit_ang_z = use_limit
                             joint.limit_ang_z_lower = minLimit
@@ -280,18 +291,44 @@ class glTF2ImportUserExtension:
                                 joint.use_spring_ang_z = True
                                 joint.spring_stiffness_ang_z = spring
                                 joint.spring_damping_ang_x = damping
-                            self._populateDrive(joint_extra, limit.drive, linear=False, axisname="z")
 
     @staticmethod
-    def _populateDrive(joint_extra, drive : Optional[JointDrive], linear: bool, axisname: str):
+    def _populateDrive(
+        joint_extra,
+        drive: Optional[JointDrive],
+        linear: bool,
+        acceleration: bool,
+        axisname: str,
+        basisscale: float
+    ):
         typeprefix = "lin" if linear else "ang"
         setattr(joint_extra, "use_%s_drive_%s" % (typeprefix, axisname), drive != None)
 
         if drive == None:
             return
 
-        setattr(joint_extra, "%s_%s_drive_pos_target" % (typeprefix, axisname), drive.position_target)
-        setattr(joint_extra, "%s_%s_drive_vel_target" % (typeprefix, axisname), drive.velocity_target)
-        setattr(joint_extra, "%s_%s_drive_max_force" % (typeprefix, axisname), drive.max_force)
+        if acceleration:
+            setattr(
+                joint_extra, "%s_%s_drive_mode" % (typeprefix, axisname), "ACCELERATION"
+            )
+        else:
+            setattr(joint_extra, "%s_%s_drive_mode" % (typeprefix, axisname), "FORCE")
+
+        postarget = drive.position_target
+        if postarget:
+            postarget *= basisscale
+        setattr( joint_extra, "%s_%s_drive_pos_target" % (typeprefix, axisname), postarget)
+
+        veltarget = drive.velocity_target
+        if veltarget:
+            veltarget *= basisscale
+        setattr( joint_extra, "%s_%s_drive_vel_target" % (typeprefix, axisname), veltarget)
+
+        setattr( joint_extra, "%s_%s_drive_force_limited" % (typeprefix, axisname), bool(drive.max_force))
+
+        if drive.max_force:
+            setattr( joint_extra, "%s_%s_drive_max_force" % (typeprefix, axisname), drive.max_force)
         setattr(joint_extra, "%s_%s_drive_stiffness" % (typeprefix, axisname), drive.stiffness)
-        setattr(joint_extra, "%s_%s_drive_damping" % (typeprefix, axisname), drive.damping)
+        setattr(
+            joint_extra, "%s_%s_drive_damping" % (typeprefix, axisname), drive.damping
+        )
