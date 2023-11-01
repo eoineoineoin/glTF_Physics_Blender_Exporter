@@ -11,15 +11,15 @@ rigidBody_Extension_Name = "KHR_rigid_bodies"
 
 # Enum values for friction/restitution combine modes
 physics_material_combine_types = [
-    ("AVERAGE", "Average", "", 0),
-    ("MINIMUM", "Minimum", "", 1),
-    ("MAXIMUM", "Maximum", "", 2),
-    ("MULTIPLY", "Multiply", "", 3),
+    ("average", "Average", "", 0),
+    ("minimum", "Minimum", "", 1),
+    ("maximum", "Maximum", "", 2),
+    ("multiply", "Multiply", "", 3),
 ]
 
 physics_drive_mode_types = [
-    ("FORCE", "Force", "", 0),
-    ("ACCELERATION", "Acceleration", "", 1),
+    ("force", "Force", "", 0),
+    ("acceleration", "Acceleration", "", 1),
 ]
 
 
@@ -278,7 +278,7 @@ class JointLimit:
     linear_axes: Optional[list[int]] = None
     min_limit: Optional[float] = None
     max_limit: Optional[float] = None
-    spring_constant: Optional[float] = None
+    spring_stiffness: Optional[float] = None
     spring_damping: Optional[float] = None
     extensions: Optional[Dict[str, Any]] = None
     extras: Any = None
@@ -309,10 +309,10 @@ class JointLimit:
         )
         result["min"] = from_union([from_float, from_none], self.min_limit)
         result["max"] = from_union([from_float, from_none], self.max_limit)
-        result["springConstant"] = from_union(
-            [from_float, from_none], self.spring_constant
+        result["stiffness"] = from_union(
+            [from_float, from_none], self.spring_stiffness
         )
-        result["springDamping"] = from_union(
+        result["damping"] = from_union(
             [from_float, from_none], self.spring_damping
         )
         result["extensions"] = from_union(
@@ -333,11 +333,11 @@ class JointLimit:
         )
         limit.min_limit = from_union([from_float, from_none], obj.get("min"))
         limit.max_limit = from_union([from_float, from_none], obj.get("max"))
-        limit.spring_constant = from_union(
-            [from_float, from_none], obj.get("springConstant")
+        limit.spring_stiffness = from_union(
+            [from_float, from_none], obj.get("stiffness")
         )
         limit.spring_damping = from_union(
-            [from_float, from_none], obj.get("springDamping")
+            [from_float, from_none], obj.get("damping")
         )
         limit.extensions = from_union(
             [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],

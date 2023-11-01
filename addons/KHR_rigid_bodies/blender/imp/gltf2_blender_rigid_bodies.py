@@ -231,7 +231,7 @@ class glTF2ImportUserExtension:
                 use_limit = limit.min_limit != None or limit.max_limit != None
                 minLimit = limit.min_limit if limit.min_limit != None else 0
                 maxLimit = limit.max_limit if limit.max_limit != None else 0
-                (spring, damping) = (limit.spring_constant, limit.spring_damping)
+                (spring, damping) = (limit.spring_stiffness, limit.spring_damping)
                 X, Y, Z = (0, 2, 1)
                 if limit.linear_axes != None:
                     for axIdx in limit.linear_axes:
@@ -309,10 +309,10 @@ class glTF2ImportUserExtension:
 
         if acceleration:
             setattr(
-                joint_extra, "%s_%s_drive_mode" % (typeprefix, axisname), "ACCELERATION"
+                joint_extra, "%s_%s_drive_mode" % (typeprefix, axisname), "acceleration"
             )
         else:
-            setattr(joint_extra, "%s_%s_drive_mode" % (typeprefix, axisname), "FORCE")
+            setattr(joint_extra, "%s_%s_drive_mode" % (typeprefix, axisname), "force")
 
         postarget = drive.position_target
         if postarget:

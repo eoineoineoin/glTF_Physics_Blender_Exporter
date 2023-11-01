@@ -444,7 +444,7 @@ class glTF2ExportUserExtension:
                     linLimit.min_limit = joint.limit_lin_x_lower
                     linLimit.max_limit = joint.limit_lin_x_upper
                     if joint.type == "GENERIC_SPRING" and joint.use_spring_x:
-                        linLimit.spring_constant = joint.spring_stiffness_x
+                        linLimit.spring_stiffness = joint.spring_stiffness_x
                         linLimit.spring_damping = joint.spring_damping_x
                 jointDesc.limits.append(linLimit)
             if joint.use_limit_lin_y:
@@ -457,7 +457,7 @@ class glTF2ExportUserExtension:
                         linLimit.min_limit = joint.limit_lin_y_lower
                         linLimit.max_limit = joint.limit_lin_y_upper
                     if joint.type == "GENERIC_SPRING" and joint.use_spring_y:
-                        linLimit.spring_constant = joint.spring_stiffness_y
+                        linLimit.spring_stiffness = joint.spring_stiffness_y
                         linLimit.spring_damping = joint.spring_damping_y
                 jointDesc.limits.append(linLimit)
             if joint.use_limit_lin_z:
@@ -466,7 +466,7 @@ class glTF2ExportUserExtension:
                     linLimit.min_limit = joint.limit_lin_z_lower
                     linLimit.max_limit = joint.limit_lin_z_upper
                     if joint.type == "GENERIC_SPRING" and joint.use_spring_z:
-                        linLimit.spring_constant = joint.spring_stiffness_z
+                        linLimit.spring_stiffness = joint.spring_stiffness_z
                         linLimit.spring_damping = joint.spring_damping_z
                 jointDesc.limits.append(linLimit)
             if joint.use_limit_ang_x:
@@ -475,7 +475,7 @@ class glTF2ExportUserExtension:
                     angLimit.min_limit = joint.limit_ang_x_lower
                     angLimit.max_limit = joint.limit_ang_x_upper
                     if joint.type == "GENERIC_SPRING" and joint.use_spring_ang_x:
-                        angLimit.spring_constant = joint.spring_stiffness_ang_x
+                        angLimit.spring_stiffness = joint.spring_stiffness_ang_x
                         angLimit.spring_damping = joint.spring_damping_ang_x
                 jointDesc.limits.append(angLimit)
             if joint.use_limit_ang_y:
@@ -488,7 +488,7 @@ class glTF2ExportUserExtension:
                         angLimit.min_limit = joint.limit_ang_y_lower
                         angLimit.max_limit = joint.limit_ang_y_upper
                     if joint.type == "GENERIC_SPRING" and joint.use_spring_ang_y:
-                        angLimit.spring_constant = joint.spring_stiffness_ang_y
+                        angLimit.spring_stiffness = joint.spring_stiffness_ang_y
                         angLimit.spring_damping = joint.spring_damping_ang_y
                 jointDesc.limits.append(angLimit)
             if joint.use_limit_ang_z:
@@ -497,7 +497,7 @@ class glTF2ExportUserExtension:
                     angLimit.min_limit = joint.limit_ang_z_lower
                     angLimit.max_limit = joint.limit_ang_z_upper
                     if joint.type == "GENERIC_SPRING" and joint.use_spring_ang_z:
-                        angLimit.spring_constant = joint.spring_stiffness_ang_z
+                        angLimit.spring_stiffness = joint.spring_stiffness_ang_z
                         angLimit.spring_damping = joint.spring_damping_ang_z
                 jointDesc.limits.append(angLimit)
 
@@ -525,7 +525,7 @@ class glTF2ExportUserExtension:
                 drive_mode = getattr(
                     joint_extra, "%s_%s_drive_mode" % (typeprefix, axisname)
                 )
-                isAcceleration = drive_mode == "ACCELERATION"
+                isAcceleration = drive_mode == "acceleration"
 
                 drive = JointDrive(
                     axIdx, isLinear=(typeprefix == "lin"), isAcceleration=isAcceleration
