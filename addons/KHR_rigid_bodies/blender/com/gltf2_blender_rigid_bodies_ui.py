@@ -168,7 +168,8 @@ class KHR_rigid_body_importer_properties(bpy.types.PropertyGroup):
 class KHR_rigid_body_viewport_render:
     def __init__(self):
         if not bpy.app.background:
-            self.shader = gpu.shader.from_builtin("3D_UNIFORM_COLOR")
+            shaderType = "3D_UNIFORM_COLOR" if bpy.app.version[0] < 4 else "UNIFORM_COLOR"
+            self.shader = gpu.shader.from_builtin(shaderType)
         else:
             self.shader = None
 

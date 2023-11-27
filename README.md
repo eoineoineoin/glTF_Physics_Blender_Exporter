@@ -5,7 +5,7 @@ glTF specification for rigid body dynamics, [KHR_rigid_bodies](https://github.co
 
 ## Installation
 
-1. Download a zip file from the [releases](releases) page.
+1. Download a zip file from the [releases](https://github.com/eoineoineoin/glTF_Physics_Blender_Exporter/releases) page.
 2. Launch Blender.
 3. Navigate to Edit → Preferences → Add-ons and click the "Install" button.
 4. Select the zip file you downloaded.
