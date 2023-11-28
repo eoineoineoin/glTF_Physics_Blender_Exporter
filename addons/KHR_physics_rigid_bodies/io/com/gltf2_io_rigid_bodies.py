@@ -7,7 +7,7 @@ from io_scene_gltf2.io.com.gltf2_io_extensions import ChildOfRootExtension
 from mathutils import Vector, Quaternion
 from typing import Optional, Union, Dict, Any
 
-rigidBody_Extension_Name = "KHR_rigid_bodies"
+rigidBody_Extension_Name = "KHR_physics_rigid_bodies"
 
 # Enum values for friction/restitution combine modes
 physics_material_combine_types = [

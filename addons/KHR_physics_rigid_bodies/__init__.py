@@ -5,9 +5,9 @@ from .blender.exp.gltf2_blender_rigid_bodies import glTF2ExportUserExtension
 from .blender.imp.gltf2_blender_rigid_bodies import glTF2ImportUserExtension
 
 bl_info = {
-    "name": "KHR_rigid_bodies",
+    "name": "KHR_physics_rigid_bodies",
     "category": "Import-Export",
-    "version": (0, 1, 0),
+    "version": (0, 2, 0),
     "blender": (3, 6, 0),
     "location": "File > Export > glTF 2.0",
     "description": "Extension for adding rigid body information to exported glTF file",

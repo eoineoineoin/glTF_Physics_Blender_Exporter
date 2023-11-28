@@ -145,7 +145,7 @@ class KHR_rigid_body_constraint_node_properties(bpy.types.PropertyGroup):
 
 class KHR_rigid_body_exporter_properties(bpy.types.PropertyGroup):
     enabled: bpy.props.BoolProperty(
-        name="KHR_rigid_bodies",
+        name="KHR_physics_rigid_bodies",
         description="Include rigid body data in the exported glTF file.",
         default=True,
     )
@@ -159,7 +159,7 @@ class KHR_rigid_body_exporter_properties(bpy.types.PropertyGroup):
 
 class KHR_rigid_body_importer_properties(bpy.types.PropertyGroup):
     enabled: bpy.props.BoolProperty(
-        name="KHR_rigid_bodies",
+        name="KHR_physics_rigid_bodies",
         description="Include rigid body data from the imported glTF file.",
         default=True,
     )
