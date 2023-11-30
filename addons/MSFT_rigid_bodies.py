@@ -538,7 +538,8 @@ class MSFTPhysicsImporterProperties(bpy.types.PropertyGroup):
 
 class MSFTPhysicsSettingsViewportRenderHelper:
     def __init__(self):
-        self.shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
+        shaderType = "3D_UNIFORM_COLOR" if bpy.app.version[0] < 4 else "UNIFORM_COLOR"
+        self.shader = gpu.shader.from_builtin(shaderType)
 
     def _calcPerpNormalized(self, v):
         v4 = Vector(v.to_tuple() + (0.0,))
