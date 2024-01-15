@@ -73,5 +73,3 @@ Here, we can see the inital linear/angular velocities of the body (represented h
 
 Collision geometry may not have the minimal required volume for that particular shape type if vertices are offset from node; this matches Blender's behaviour.
 
-Blender's UI hides collision filtering information for children of a "Compound Parent" body - to set the collision filtering information for such an object, the child needs to be temporarily unparented from the compound.
-

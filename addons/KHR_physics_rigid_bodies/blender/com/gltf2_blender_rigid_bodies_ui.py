@@ -546,6 +546,25 @@ class KHR_PT_rigid_body_shape(KHR_PT_rigid_body_panel_base):
             row.prop(obj.khr_physics_extra_props, "cone_capsule_height")
             row.prop(obj.khr_physics_extra_props, "cone_capsule_radius_top")
 
+class KHR_PT_rigid_body_collections(KHR_PT_rigid_body_panel_base):
+    """Additional panel to display collision collections for a body, as, by default,
+    Blender will not show collections for children of a COMPOUND_PARENT"""
+    bl_label = "Collections"
+    bl_parent_id = "KHR_PT_rigid_body_panel"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "physics"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    @classmethod
+    def poll(cls, context):
+        return KHR_PT_rigid_body_panel_base.rigid_body_selected(context)
+
+    def draw(self, context):
+        obj = context.object
+        layout = self.layout
+        layout.prop(obj.rigid_body, "collision_collections")
+
 
 class KHR_PT_rigid_body_constraint_panel_base(bpy.types.Panel):
     bl_label = "KHR Physics Constraint Extensions"
@@ -668,6 +687,7 @@ registered_classes = [
     KHR_PT_rigid_body_panel,
     KHR_PT_rigid_body_motion,
     KHR_PT_rigid_body_shape,
+    KHR_PT_rigid_body_collections,
     KHR_PT_rigid_body_mass,
     KHR_PT_rigid_body_constraint_panel,
     KHR_PT_rigid_body_constraint_drives,
