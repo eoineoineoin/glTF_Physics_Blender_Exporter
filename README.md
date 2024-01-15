@@ -1,7 +1,7 @@
 ## Extension to export rigid body information in a glTF file.
 
 This is a work in progressused to validate the concepts used by the proposed
-glTF specification for rigid body dynamics, [KHR_rigid_bodies](https://github.com/eoineoineoin/glTF_Physics) - while this addon may undergo change in future iterations, it has been deployed for production use.
+glTF specification for rigid body dynamics, [KHR_physics_rigid_bodies](https://github.com/eoineoineoin/glTF_Physics) - while this addon may undergo change in future iterations, it has been deployed for production use.
 
 ## Installation
 
@@ -9,7 +9,7 @@ glTF specification for rigid body dynamics, [KHR_rigid_bodies](https://github.co
 2. Launch Blender.
 3. Navigate to Edit → Preferences → Add-ons and click the "Install" button.
 4. Select the zip file you downloaded.
-5. Browse to and enable the addon "Import-Export: KHR\_rigid\_bodies"
+5. Browse to and enable the addon "Import-Export: KHR\_physics\_rigid\_bodies"
 
 Once installed and enabled, the exporter extension is ready to use. When exporting a glTF file (using the "File" → "Export" → "glTF 2.0" menu in Blender) the plugin can be enabled by enabling it in the "Exporter Extensions" setting of the file selection:
 
@@ -25,7 +25,7 @@ Enabling this option will add rigid body information to the exported file.
 4. In the "Script Directories" section, add a new entry, with the location of the cloned repository (i.e. the directory which contains this README.md)
 5. Restart Blender.
 6. Navigate to Edit → Preferences → Add-ons.
-7. Browse to and enable the addon "Import-Export: KHR\_rigid\_bodies"
+7. Browse to and enable the addon "Import-Export: KHR\_physics\_rigid\_bodies"
 
 
 ## Usage
