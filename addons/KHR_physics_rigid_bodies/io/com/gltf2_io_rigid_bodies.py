@@ -309,12 +309,8 @@ class JointLimit:
         )
         result["min"] = from_union([from_float, from_none], self.min_limit)
         result["max"] = from_union([from_float, from_none], self.max_limit)
-        result["stiffness"] = from_union(
-            [from_float, from_none], self.spring_stiffness
-        )
-        result["damping"] = from_union(
-            [from_float, from_none], self.spring_damping
-        )
+        result["stiffness"] = from_union([from_float, from_none], self.spring_stiffness)
+        result["damping"] = from_union([from_float, from_none], self.spring_damping)
         result["extensions"] = from_union(
             [lambda x: from_dict(from_extension, x), from_none], self.extensions
         )
@@ -336,9 +332,7 @@ class JointLimit:
         limit.spring_stiffness = from_union(
             [from_float, from_none], obj.get("stiffness")
         )
-        limit.spring_damping = from_union(
-            [from_float, from_none], obj.get("damping")
-        )
+        limit.spring_damping = from_union([from_float, from_none], obj.get("damping"))
         limit.extensions = from_union(
             [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
             obj.get("extensions"),

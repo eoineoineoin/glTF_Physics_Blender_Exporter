@@ -299,7 +299,7 @@ class glTF2ImportUserExtension:
         linear: bool,
         acceleration: bool,
         axisname: str,
-        basisscale: float
+        basisscale: float,
     ):
         typeprefix = "lin" if linear else "ang"
         setattr(joint_extra, "use_%s_drive_%s" % (typeprefix, axisname), drive != None)
@@ -317,18 +317,34 @@ class glTF2ImportUserExtension:
         postarget = drive.position_target
         if postarget:
             postarget *= basisscale
-        setattr( joint_extra, "%s_%s_drive_pos_target" % (typeprefix, axisname), postarget)
+        setattr(
+            joint_extra, "%s_%s_drive_pos_target" % (typeprefix, axisname), postarget
+        )
 
         veltarget = drive.velocity_target
         if veltarget:
             veltarget *= basisscale
-        setattr( joint_extra, "%s_%s_drive_vel_target" % (typeprefix, axisname), veltarget)
+        setattr(
+            joint_extra, "%s_%s_drive_vel_target" % (typeprefix, axisname), veltarget
+        )
 
-        setattr( joint_extra, "%s_%s_drive_force_limited" % (typeprefix, axisname), bool(drive.max_force))
+        setattr(
+            joint_extra,
+            "%s_%s_drive_force_limited" % (typeprefix, axisname),
+            bool(drive.max_force),
+        )
 
         if drive.max_force:
-            setattr( joint_extra, "%s_%s_drive_max_force" % (typeprefix, axisname), drive.max_force)
-        setattr(joint_extra, "%s_%s_drive_stiffness" % (typeprefix, axisname), drive.stiffness)
+            setattr(
+                joint_extra,
+                "%s_%s_drive_max_force" % (typeprefix, axisname),
+                drive.max_force,
+            )
+        setattr(
+            joint_extra,
+            "%s_%s_drive_stiffness" % (typeprefix, axisname),
+            drive.stiffness,
+        )
         setattr(
             joint_extra, "%s_%s_drive_damping" % (typeprefix, axisname), drive.damping
         )

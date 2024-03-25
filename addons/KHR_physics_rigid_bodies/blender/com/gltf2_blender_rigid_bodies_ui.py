@@ -182,7 +182,9 @@ class KHR_rigid_body_importer_properties(bpy.types.PropertyGroup):
 class KHR_rigid_body_viewport_render:
     def __init__(self):
         if not bpy.app.background:
-            shaderType = "3D_UNIFORM_COLOR" if bpy.app.version[0] < 4 else "UNIFORM_COLOR"
+            shaderType = (
+                "3D_UNIFORM_COLOR" if bpy.app.version[0] < 4 else "UNIFORM_COLOR"
+            )
             self.shader = gpu.shader.from_builtin(shaderType)
         else:
             self.shader = None
@@ -560,9 +562,11 @@ class KHR_PT_rigid_body_shape(KHR_PT_rigid_body_panel_base):
             row.prop(obj.khr_physics_extra_props, "cone_capsule_height")
             row.prop(obj.khr_physics_extra_props, "cone_capsule_radius_top")
 
+
 class KHR_PT_rigid_body_collections(KHR_PT_rigid_body_panel_base):
     """Additional panel to display collision collections for a body, as, by default,
     Blender will not show collections for children of a COMPOUND_PARENT"""
+
     bl_label = "Collections"
     bl_parent_id = "KHR_PT_rigid_body_panel"
     bl_space_type = "PROPERTIES"
