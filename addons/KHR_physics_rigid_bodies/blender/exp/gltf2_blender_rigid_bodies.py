@@ -325,6 +325,12 @@ class glTF2ExportUserExtension:
                     )
                     filter_obj = self._generateFilterRootObject(blender_object)
                     extraProps = blender_object.khr_physics_extra_props
+
+                    if extraProps.non_renderable:
+                        # Remove the mesh object from the glTF object
+                        # This is a bit of a hack. See the comments on non_renderable
+                        gltf2_object.mesh = None
+
                     if extraProps.is_trigger:
                         extension_data.trigger = Trigger()
                         extension_data.trigger.shape = shape_obj

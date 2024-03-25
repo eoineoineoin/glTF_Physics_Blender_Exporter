@@ -16,6 +16,20 @@ class KHR_rigid_body_scene_properties(bpy.types.PropertyGroup):
 
 
 class KHR_rigid_body_node_properties(bpy.types.PropertyGroup):
+    # non_renderable is a bit of a hack. Hopefully temporary! Issue is that in Blender,
+    # the collision shape is generated from the mesh associated with a node. Normally,
+    # users would then set the "hide_render" on this object to make it invisible.
+    # However, the glTF export doesn't exlude these objects unless the "use_visible" option
+    # is set on export. This option has slightly different semantics, though - use of
+    # this option will exclude the whole node from export - we won't even see it in our
+    # plugin, so we won't be able to generate extension data. Setting this non_renderable
+    # flag is a workaround for this behaviour and will cause the renderable mesh to be
+    # removed from this node when exporting.
+    non_renderable: bpy.props.BoolProperty(
+        name="Non-Renderable",
+        default=False,
+        description="Exclude visibile mesh during export",
+    )
     is_trigger: bpy.props.BoolProperty(name="Is Trigger", default=False)
     gravity_factor: bpy.props.FloatProperty(name="Gravity Factor", default=1.0)
     linear_velocity: bpy.props.FloatVectorProperty(
@@ -566,6 +580,31 @@ class KHR_PT_rigid_body_collections(KHR_PT_rigid_body_panel_base):
         layout.prop(obj.rigid_body, "collision_collections")
 
 
+class KHR_PT_rigid_body_other(KHR_PT_rigid_body_panel_base):
+    """Panel to display properties for a rigid body which do not fit into other categories"""
+
+    bl_label = "Other"
+    bl_parent_id = "KHR_PT_rigid_body_panel"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "physics"
+
+    @classmethod
+    def poll(cls, context):
+        return KHR_PT_rigid_body_panel_base.rigid_body_selected(context)
+
+    def draw(self, context):
+        obj = context.object
+        layout = self.layout
+        layout.use_property_split = True
+        flow = layout.grid_flow(
+            row_major=True, columns=0, even_columns=True, even_rows=False, align=True
+        )
+
+        col = flow.column()
+        col.prop(obj.khr_physics_extra_props, "non_renderable")
+
+
 class KHR_PT_rigid_body_constraint_panel_base(bpy.types.Panel):
     bl_label = "KHR Physics Constraint Extensions"
     bl_space_type = "PROPERTIES"
@@ -689,6 +728,7 @@ registered_classes = [
     KHR_PT_rigid_body_shape,
     KHR_PT_rigid_body_collections,
     KHR_PT_rigid_body_mass,
+    KHR_PT_rigid_body_other,
     KHR_PT_rigid_body_constraint_panel,
     KHR_PT_rigid_body_constraint_drives,
     KHR_PT_rigid_body_constraint_drives_angular,
