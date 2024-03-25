@@ -268,8 +268,10 @@ class glTF2ExportUserExtension:
             # specified by being a child of a body whose collider type is "Compound Parent"
             if (
                 blender_object.rigid_body
-                and blender_object.rigid_body.enabled
                 and self._getParentCompoundBody(blender_object) == None
+                and blender_object.rigid_body.enabled
+                # Not PASSIVE, which seems to imply static:
+                and blender_object.rigid_body.type == "ACTIVE"
             ):
                 rb = blender_object.rigid_body
                 extraProps = blender_object.khr_physics_extra_props
