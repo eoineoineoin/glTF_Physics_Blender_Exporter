@@ -1,5 +1,5 @@
 from . import from_vec
-from io_scene_gltf2.io.com.gltf2_io import from_union, from_none, from_float
+from io_scene_gltf2.io.com.gltf2_io import from_union, from_none, from_float, from_bool
 from io_scene_gltf2.io.com.gltf2_io import from_str, from_list, from_int, from_dict
 from io_scene_gltf2.io.com.gltf2_io import to_class, from_extension, from_extra
 from mathutils import Vector
@@ -154,17 +154,26 @@ class Cylinder:
         return result
 
 
-class Convex:
+class Mesh:
     mesh: Optional[int] = None
+    convexHull: Optional[bool] = None
+    skin: Optional[int] = None
+    # Todo: looks like blender never sets instance weights, always creating a new
+    # mesh instance instead. Not sure this can ever be populated. Verify.
+    weights: Optional[list[float]] = None
     extensions: Optional[Dict[str, Any]] = None
     extras: Any = None
 
-    def __init__(self, mesh):
+    def __init__(self, mesh, convexHull = None):
         self.mesh = mesh
+        self.convexHull = convexHull
 
     def to_dict(self):
         result = {}
         result["mesh"] = self.mesh
+        result["convexHull"] = from_union([from_bool, from_none], self.convexHull)
+        result["skin"] = self.skin
+        result["weights"] = from_union([ lambda x: from_list(lambda x: from_float(x), x), from_none], self.weights)
         result["extensions"] = from_union(
             [lambda x: from_dict(from_extension, x), from_none], self.extensions
         )
@@ -177,39 +186,8 @@ class Convex:
         if obj == None:
             return None
         mesh = from_union([from_int, from_none], obj.get("mesh"))
-        result = Convex(mesh)
-        result.extensions = from_union(
-            [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
-            obj.get("extensions"),
-        )
-        result.extras = obj.get("extras")
-        return result
-
-
-class TriMesh:
-    mesh: Optional[int] = None
-    extensions: Optional[Dict[str, Any]] = None
-    extras: Any = None
-
-    def __init__(self, mesh):
-        self.mesh = mesh
-
-    def to_dict(self):
-        result = {}
-        result["mesh"] = self.mesh
-        result["extensions"] = from_union(
-            [lambda x: from_dict(from_extension, x), from_none], self.extensions
-        )
-        result["extras"] = from_extra(self.extras)
-        return result
-
-    @staticmethod
-    def from_dict(obj):
-        assert isinstance(obj, dict)
-        if obj == None:
-            return None
-        mesh = from_union([from_int, from_none], obj.get("mesh"))
-        result = TriMesh(mesh)
+        convexHull = from_union([from_bool, from_none], obj.get("convexHull"))
+        result = Mesh(mesh, convexHull=convexHull)
         result.extensions = from_union(
             [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
             obj.get("extensions"),
@@ -224,8 +202,7 @@ class Shape:
     box: Optional[Box] = None
     capsule: Optional[Capsule] = None
     cylinder: Optional[Cylinder] = None
-    convex: Optional[Convex] = None
-    trimesh: Optional[TriMesh] = None
+    mesh: Optional[Mesh] = None
     extensions: Optional[Dict[str, Any]] = None
     extras: Any = None
 
@@ -242,11 +219,8 @@ class Shape:
         result["cylinder"] = from_union(
             [lambda x: to_class(Cylinder, x), from_none], self.cylinder
         )
-        result["convex"] = from_union(
-            [lambda x: to_class(Convex, x), from_none], self.convex
-        )
-        result["trimesh"] = from_union(
-            [lambda x: to_class(TriMesh, x), from_none], self.trimesh
+        result["mesh"] = from_union(
+            [lambda x: to_class(Mesh, x), from_none], self.mesh
         )
         return result
 
@@ -261,8 +235,7 @@ class Shape:
         result.cylinder = from_union(
             [Cylinder.from_dict, from_none], obj.get("cylinder")
         )
-        result.convex = from_union([Convex.from_dict, from_none], obj.get("convex"))
-        result.trimesh = from_union([TriMesh.from_dict, from_none], obj.get("trimesh"))
+        result.mesh = from_union([Mesh.from_dict, from_none], obj.get("mesh"))
         result.extensions = from_union(
             [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
             obj.get("extensions"),

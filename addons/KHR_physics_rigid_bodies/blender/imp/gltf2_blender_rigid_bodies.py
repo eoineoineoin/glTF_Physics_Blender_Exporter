@@ -133,12 +133,13 @@ class glTF2ImportUserExtension:
                     if shape.cylinder.radiusTop == 0:
                         blender_object.rigid_body.collision_shape = "CONE"
 
-                # <todo.eoin Figure out if we can hook in a different mesh
+                # <todo.eoin Figure out if we can hook in a different mesh/skin/weights
                 # other than the one associated with this node
-                if shape.convex != None:
-                    blender_object.rigid_body.collision_shape = "CONVEX_HULL"
-                if shape.trimesh != None:
-                    blender_object.rigid_body.collision_shape = "MESH"
+                if shape.mesh != None:
+                    if shape.mesh.convexHull:
+                        blender_object.rigid_body.collision_shape = "CONVEX_HULL"
+                    else:
+                        blender_object.rigid_body.collision_shape = "MESH"
 
                 # todo.eoin Collision systems
 

@@ -588,12 +588,14 @@ class glTF2ExportUserExtension:
         shape = Shape()
 
         if node.rigid_body.collision_shape == "CONVEX_HULL":
-            shape.type = "convex"
-            shape.convex = Convex(glNode.mesh)
+            shape.type = "mesh"
+            shape.mesh = Mesh(glNode.mesh, convexHull=True)
+            shape.mesh.skin = glNode.skin
             return shape
         elif node.rigid_body.collision_shape == "MESH":
-            shape.type = "trimesh"
-            shape.trimesh = TriMesh(glNode.mesh)
+            shape.type = "mesh"
+            shape.mesh = Mesh(glNode.mesh, convexHull=False)
+            shape.mesh.skin = glNode.skin
             return shape
         # If the shape is a geometric primitive, we may have to apply modifiers
         # to see the final geometry. (glNode has already had modifiers applied)
