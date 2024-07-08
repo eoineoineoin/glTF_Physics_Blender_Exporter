@@ -29,6 +29,8 @@ class glTF2ImportUserExtension:
         self.joints_to_fixup = []
 
     def gather_import_gltf_before_hook(self, gltf):
+        if not gltf.data.extensions:
+            return
         csExt = gltf.data.extensions.get(collisionGeom_Extension_Name)
         if csExt != None:
             self.csExt = CollisionShapesGlTFExtension.from_dict(csExt)
