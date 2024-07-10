@@ -156,24 +156,26 @@ class Cylinder:
 
 class Mesh:
     mesh: Optional[int] = None
-    convexHull: Optional[bool] = None
     skin: Optional[int] = None
-    # Todo: looks like blender never sets instance weights, always creating a new
-    # mesh instance instead. Not sure this can ever be populated. Verify.
+    # Blender never sets instance weights, always creating a new mesh instance.
+    # (See __gather_weights in gltf2_blender_gather_nodes), so neither weights
+    # nor useNodeWeights will ever be populated. May change in the future.
     weights: Optional[list[float]] = None
+    useNodeWeights: Optional[bool] = None
     extensions: Optional[Dict[str, Any]] = None
     extras: Any = None
 
-    def __init__(self, mesh, convexHull = None):
+    def __init__(self, mesh):
         self.mesh = mesh
-        self.convexHull = convexHull
 
     def to_dict(self):
         result = {}
         result["mesh"] = self.mesh
-        result["convexHull"] = from_union([from_bool, from_none], self.convexHull)
         result["skin"] = self.skin
-        result["weights"] = from_union([ lambda x: from_list(lambda x: from_float(x), x), from_none], self.weights)
+        result["weights"] = from_union(
+            [lambda x: from_list(lambda x: from_float(x), x), from_none], self.weights
+        )
+        result["useNodeWeights"] = self.useNodeWeights
         result["extensions"] = from_union(
             [lambda x: from_dict(from_extension, x), from_none], self.extensions
         )
@@ -186,8 +188,15 @@ class Mesh:
         if obj == None:
             return None
         mesh = from_union([from_int, from_none], obj.get("mesh"))
-        convexHull = from_union([from_bool, from_none], obj.get("convexHull"))
-        result = Mesh(mesh, convexHull=convexHull)
+        result = Mesh(mesh)
+        result.skin = from_union([from_int, from_none], obj.get("skin"))
+        result.useNodeWeights = from_union(
+            [from_bool, from_none], obj.get("useNodeWeights")
+        )
+        result.weights = from_union(
+            [lambda x: from_list(lambda x: from_float(x), x), from_none],
+            obj.get("weights"),
+        )
         result.extensions = from_union(
             [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
             obj.get("extensions"),
@@ -219,9 +228,11 @@ class Shape:
         result["cylinder"] = from_union(
             [lambda x: to_class(Cylinder, x), from_none], self.cylinder
         )
-        result["mesh"] = from_union(
-            [lambda x: to_class(Mesh, x), from_none], self.mesh
+        result["mesh"] = from_union([lambda x: to_class(Mesh, x), from_none], self.mesh)
+        result["extensions"] = from_union(
+            [lambda x: from_dict(from_extension, x), from_none], self.extensions
         )
+        result["extras"] = from_extra(self.extras)
         return result
 
     @staticmethod

@@ -589,12 +589,15 @@ class glTF2ExportUserExtension:
 
         if node.rigid_body.collision_shape == "CONVEX_HULL":
             shape.type = "mesh"
-            shape.mesh = Mesh(glNode.mesh, convexHull=True)
+            shape.mesh = Mesh(glNode.mesh)
+            shape.extensions = {
+                rigidBody_Extension_Name: RigidBodiesShapeExtension(convexHull=True)
+            }
             shape.mesh.skin = glNode.skin
             return shape
         elif node.rigid_body.collision_shape == "MESH":
             shape.type = "mesh"
-            shape.mesh = Mesh(glNode.mesh, convexHull=False)
+            shape.mesh = Mesh(glNode.mesh)
             shape.mesh.skin = glNode.skin
             return shape
         # If the shape is a geometric primitive, we may have to apply modifiers
@@ -693,12 +696,12 @@ class glTF2ExportUserExtension:
                         )
                         node_ext.collider.shape = shape_obj
 
-                    shape_alignment.extensions[
-                        rigidBody_Extension_Name
-                    ] = self.Extension(
-                        name=rigidBody_Extension_Name,
-                        extension=node_ext.to_dict(),
-                        required=False,
+                    shape_alignment.extensions[rigidBody_Extension_Name] = (
+                        self.Extension(
+                            name=rigidBody_Extension_Name,
+                            extension=node_ext.to_dict(),
+                            required=False,
+                        )
                     )
                     glNode.children.append(shape_alignment)
 

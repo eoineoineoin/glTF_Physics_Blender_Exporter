@@ -498,6 +498,25 @@ class Joint:
         return joint
 
 
+class RigidBodiesShapeExtension:
+    convexHull: Optional[bool] = None
+
+    def __init__(self, convexHull=None):
+        super().__init__()
+        self.convexHull = convexHull
+
+    def to_dict(self):
+        result = {}
+        if self.convexHull != None:
+            result["convexHull"] = self.convexHull
+        return result
+
+    @staticmethod
+    def from_dict(obj):
+        assert isinstance(obj, dict)
+        return RigidBodiesShapeExtension(obj.get("convexHull"))
+
+
 class RigidBodiesNodeExtension:
     motion: Optional[Motion] = None
     collider: Optional[Collider] = None

@@ -69,7 +69,6 @@ class glTF2ImportUserExtension:
             self.gather_import_node_after_hook_2(vnode, gltf_node, blender_object, gltf)
         except:
             import traceback
-
             print(traceback.format_exc())
 
     def gather_import_node_after_hook_2(self, vnode, gltf_node, blender_object, gltf):
@@ -138,10 +137,17 @@ class glTF2ImportUserExtension:
                 # <todo.eoin Figure out if we can hook in a different mesh/skin/weights
                 # other than the one associated with this node
                 if shape.mesh != None:
-                    if shape.mesh.convexHull:
-                        blender_object.rigid_body.collision_shape = "CONVEX_HULL"
-                    else:
-                        blender_object.rigid_body.collision_shape = "MESH"
+                    blender_object.rigid_body.collision_shape = "MESH"
+
+                    if (
+                        shape.extensions
+                        and rigidBody_Extension_Name in shape.extensions
+                    ):
+                        rbShapeExt = RigidBodiesShapeExtension.from_dict(
+                            shape.extensions[rigidBody_Extension_Name]
+                        )
+                        if rbShapeExt.convexHull:
+                            blender_object.rigid_body.collision_shape = "CONVEX_HULL"
 
                 # todo.eoin Collision systems
 
