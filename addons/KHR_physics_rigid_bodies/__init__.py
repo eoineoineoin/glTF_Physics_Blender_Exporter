@@ -1,8 +1,6 @@
 import bpy
 
 from .blender.com import gltf2_blender_rigid_bodies_ui as rb_extra_ui
-from .blender.exp.gltf2_blender_rigid_bodies import glTF2ExportUserExtension
-from .blender.imp.gltf2_blender_rigid_bodies import glTF2ImportUserExtension
 
 bl_info = {
     "name": "KHR_physics_rigid_bodies",
