@@ -219,6 +219,8 @@ class glTF2ExportUserExtension:
         node: gltf2_io.Node,
     ):
         nodeToParent[node] = parent
+        if node == None or node.children == None:
+            return
         for c in node.children:
             self._buildParentMap(nodeToParent, node, c)
 
@@ -241,7 +243,7 @@ class glTF2ExportUserExtension:
 
         self.gltfNodeToBlender[gltf2_node] = blender_bone
         constraint = self._getBoneChildConstraint(blender_bone)
-        if constraint != None:
+        if constraint != None and constraint.target != None:
             target = constraint.target
             if target.rigid_body or self._getParentCompoundBody(target) != None:
                 self.blenderBoneToGltfNode[blender_bone] = gltf2_node
