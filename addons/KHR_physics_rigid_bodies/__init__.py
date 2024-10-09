@@ -17,7 +17,7 @@ bl_info = {
     "url": "https://github.com/eoineoineoin/glTF_Physics_Blender_Exporter",
 }
 
-def draw(context, layout):
+def draw_export(context, layout):
     exportProps = bpy.context.scene.khr_physics_exporter_props
     header, body = layout.panel("KHR_physics_rigid_bodies_exporter", default_closed=False)
     header.use_property_split = False
@@ -27,8 +27,7 @@ def draw(context, layout):
         body.use_property_split = False
         body.prop(exportProps, "reparent_bones")
 
-    # todo.eoin Need to figure out how to determine if we're in the import or export window
-    # Currently both property panels are displayed in both windows
+def draw_import(context, layout):
     importProps = bpy.context.scene.khr_physics_importer_props
     header, body = layout.panel("KHR_physics_rigid_bodies_importer", default_closed=False)
     header.use_property_split = False
