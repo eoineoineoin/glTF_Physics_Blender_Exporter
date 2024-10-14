@@ -384,9 +384,35 @@ class JointDescription:
         result.extras = obj.get("extras")
         return result
 
+class Geometry:
+    convex_hull: Optional[bool] = None
+    shape: Optional[Union[int, ChildOfRootExtension]] = None
+    node: Optional[Union[int, ChildOfRootExtension]] = None
+
+    def to_dict(self):
+        result = {}
+        result["convexHull"] = from_union(
+            [from_bool, from_none], self.convex_hull
+        )
+        result["shape"] = self.shape
+        result["node"] = self.node
+        return result
+
+    @staticmethod
+    def from_dict(obj):
+        assert isinstance(obj, dict)
+        if obj == None:
+            return None
+        geom = Geometry()
+        geom.convex_hull = from_union(
+            [from_bool, from_none], obj.get("convexHull")
+        )
+        geom.shape = from_union([from_int, from_none], obj.get("shape"))
+        geom.node = from_union([from_int, from_none], obj.get("node"))
+        return geom
 
 class Collider:
-    shape: Optional[Union[int, ChildOfRootExtension]] = None
+    geometry: Optional[Geometry] = None
     physics_material: Optional[Union[int, ChildOfRootExtension]] = None
     collision_filter: Optional[Union[int, ChildOfRootExtension]] = None
     extensions: Optional[Dict[str, Any]] = None
@@ -394,7 +420,7 @@ class Collider:
 
     def to_dict(self):
         result = {}
-        result["shape"] = self.shape
+        result["geometry"] = from_union([lambda x: to_class(Geometry, x), from_none], self.geometry)
         result["physicsMaterial"] = self.physics_material
         result["collisionFilter"] = self.collision_filter
         result["extensions"] = from_union(
@@ -407,7 +433,7 @@ class Collider:
     def from_dict(obj):
         assert isinstance(obj, dict)
         result = Collider()
-        result.shape = from_union([from_int, from_none], obj.get("shape"))
+        result.geometry = from_union([Geometry.from_dict, from_none], obj.get("geometry"))
         result.physics_material = from_union(
             [from_int, from_none], obj.get("physicsMaterial")
         )
@@ -423,14 +449,14 @@ class Collider:
 
 
 class Trigger:
-    shape: Optional[Union[int, ChildOfRootExtension]] = None
+    geometry: Optional[Geometry] = None
     collision_filter: Optional[Union[int, ChildOfRootExtension]] = None
     extensions: Optional[Dict[str, Any]] = None
     extras: Any = None
 
     def to_dict(self):
         result = {}
-        result["shape"] = self.shape
+        result["geometry"] = from_union([lambda x: to_class(Geometry, x), from_none], self.geometry)
         result["collisionFilter"] = self.collision_filter
         result["extensions"] = from_union(
             [lambda x: from_dict(from_extension, x), from_none], self.extensions
@@ -442,7 +468,7 @@ class Trigger:
     def from_dict(obj):
         assert isinstance(obj, dict)
         result = Trigger()
-        result.shape = from_union([from_int, from_none], obj.get("shape"))
+        result.geometry = from_union([Geometry.from_dict, from_none], obj.get("geometry"))
         result.collision_filter = from_union(
             [from_int, from_none], obj.get("collisionFilter")
         )

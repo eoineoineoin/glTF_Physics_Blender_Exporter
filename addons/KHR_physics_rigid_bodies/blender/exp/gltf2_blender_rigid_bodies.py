@@ -1,5 +1,5 @@
 import bpy
-from ...io.com.gltf2_io_collision_shapes import *
+from ...io.com.gltf2_io_implicit_shapes import *
 from ...io.com.gltf2_io_rigid_bodies import *
 from io_scene_gltf2.io.com import gltf2_io
 from mathutils import Matrix, Euler
@@ -9,6 +9,9 @@ halfSqrt2 = 2**0.5 * 0.5
 
 
 class glTF2ExportUserExtension:
+    isExt: ImplicitShapesGlTFExtension
+    rbExt: RigidBodiesGlTFExtension
+
     def __init__(self):
         # We need to wait until we create the gltf2UserExtension to import the gltf2 modules
         # Otherwise, it may fail because the gltf2 may not be loaded yet
@@ -19,7 +22,7 @@ class glTF2ExportUserExtension:
         self.ChildOfRootExtension = ChildOfRootExtension
         self.properties = bpy.context.scene.khr_physics_exporter_props
         self.rbExt = RigidBodiesGlTFExtension()
-        self.csExt = CollisionShapesGlTFExtension()
+        self.isExt = ImplicitShapesGlTFExtension()
 
         # Supporting data allowing us to save joints correctly
         self.blenderJointObjects = []
@@ -43,15 +46,15 @@ class glTF2ExportUserExtension:
             gltf2_plan.extensions[rigidBody_Extension_Name] = physicsRootExtension
 
         if (
-            not collisionGeom_Extension_Name in gltf2_plan.extensions
-            and self.csExt.should_export()
+            not implicitShapes_Extension_Name in gltf2_plan.extensions
+            and self.isExt.should_export()
         ):
-            cgRootExtension = self.Extension(
-                name=collisionGeom_Extension_Name,
-                extension=self.csExt.to_dict(),
+            isRootExtension = self.Extension(
+                name=implicitShapes_Extension_Name,
+                extension=self.isExt.to_dict(),
                 required=False,
             )
-            gltf2_plan.extensions[collisionGeom_Extension_Name] = cgRootExtension
+            gltf2_plan.extensions[implicitShapes_Extension_Name] = isRootExtension
 
     def gather_scene_hook(
         self, gltf2_scene: gltf2_io.Scene, blender_scene, export_settings
@@ -317,16 +320,10 @@ class glTF2ExportUserExtension:
                 extension_data.motion = motion
 
             if blender_object.rigid_body:
-                shape_data = self._generateShapeData(
+                geom_data = self._generateGeometryData(
                     blender_object, gltf2_object, export_settings
                 )
-                if shape_data:
-                    shape_obj = self.ChildOfRootExtension(
-                        name=collisionGeom_Extension_Name,
-                        path=["shapes"],
-                        required=False,
-                        extension=shape_data.to_dict(),
-                    )
+                if geom_data:
                     filter_obj = self._generateFilterRootObject(blender_object)
                     extraProps = blender_object.khr_physics_extra_props
 
@@ -337,11 +334,11 @@ class glTF2ExportUserExtension:
 
                     if extraProps.is_trigger:
                         extension_data.trigger = Trigger()
-                        extension_data.trigger.shape = shape_obj
+                        extension_data.trigger.geometry = geom_data
                         extension_data.trigger.collision_filter = filter_obj
                     else:
                         extension_data.collider = Collider()
-                        extension_data.collider.shape = shape_obj
+                        extension_data.collider.geometry = geom_data
                         extension_data.collider.collision_filter = filter_obj
                         extension_data.collider.physics_material = (
                             self._generateMaterialRootObject(blender_object)
@@ -584,24 +581,20 @@ class glTF2ExportUserExtension:
             extension=collision_filter.to_dict(),
         )
 
-    def _generateShapeData(self, node, glNode, export_settings):
+    def _generateGeometryData(self, node, glNode, export_settings) -> Optional[Geometry]:
         if node.rigid_body == None or node.rigid_body.collision_shape == "COMPOUND":
             return None
-        shape = Shape()
+        geom = Geometry()
 
-        if node.rigid_body.collision_shape == "CONVEX_HULL":
-            shape.type = "mesh"
-            shape.mesh = Mesh(glNode.mesh)
-            shape.extensions = {
-                rigidBody_Extension_Name: RigidBodiesShapeExtension(convexHull=True)
-            }
-            shape.mesh.skin = glNode.skin
-            return shape
-        elif node.rigid_body.collision_shape == "MESH":
-            shape.type = "mesh"
-            shape.mesh = Mesh(glNode.mesh)
-            shape.mesh.skin = glNode.skin
-            return shape
+        if node.rigid_body.collision_shape in ("CONVEX_HULL", "MESH"):
+            shape_node = self._constructNode("physicsMeshDataNode", Vector((0,0,0)), Quaternion((0,0,0,1)), export_settings)
+            shape_node.mesh = glNode.mesh
+            shape_node.skin = glNode.skin
+            geom.convex_hull = node.rigid_body.collision_shape == "CONVEX_HULL"
+            geom.node = shape_node
+            return geom
+
+        shape = Shape()
         # If the shape is a geometric primitive, we may have to apply modifiers
         # to see the final geometry. (glNode has already had modifiers applied)
         with self._accessMeshData(node, export_settings) as meshData:
@@ -676,8 +669,8 @@ class glTF2ExportUserExtension:
                     )
 
                     node_ext = RigidBodiesNodeExtension()
-                    shape_obj = self.ChildOfRootExtension(
-                        name=collisionGeom_Extension_Name,
+                    geom.shape = self.ChildOfRootExtension(
+                        name=implicitShapes_Extension_Name,
                         path=["shapes"],
                         required=False,
                         extension=shape.to_dict(),
@@ -687,7 +680,7 @@ class glTF2ExportUserExtension:
                         node_ext.trigger.collision_filter = (
                             self._generateFilterRootObject(node)
                         )
-                        node_ext.trigger.shape = shape_obj
+                        node_ext.trigger.geometry = geom
                     else:
                         node_ext.collider = Collider()
                         node_ext.collider.physics_material = (
@@ -696,7 +689,7 @@ class glTF2ExportUserExtension:
                         node_ext.collider.collision_filter = (
                             self._generateFilterRootObject(node)
                         )
-                        node_ext.collider.shape = shape_obj
+                        node_ext.collider.geometry = geom
 
                     shape_alignment.extensions[rigidBody_Extension_Name] = (
                         self.Extension(
@@ -710,7 +703,13 @@ class glTF2ExportUserExtension:
                     # We've added the shape data to a child of glNode;
                     # return None so that the glNode doesn't get shape data,
                     return None
-        return shape
+        geom.shape = self.ChildOfRootExtension(
+            name=implicitShapes_Extension_Name,
+            path=["shapes"],
+            required=False,
+            extension=shape.to_dict(),
+        )
+        return geom
 
     def _accessMeshData(self, node, export_settings):
         """RAII-style function to access mesh data with modifiers attached"""

@@ -1,5 +1,5 @@
 import bpy
-from ...io.com.gltf2_io_collision_shapes import *
+from ...io.com.gltf2_io_implicit_shapes import *
 from ...io.com.gltf2_io_rigid_bodies import *
 from typing import cast
 
@@ -11,8 +11,21 @@ class JointFixup:
         self.joint = joint
         self.connected_idx = connected_idx
 
+class ParentFixup:
+    """Helper class to store information about mesh node parenting"""
+    def __init__(self, parent_node, child_idx, convex_hull):
+        self.parent_node = parent_node
+        self.child_idx = child_idx
+        self.convex_hull = convex_hull
 
 class glTF2ImportUserExtension:
+    isExt: Optional[ImplicitShapesGlTFExtension] = None
+    rbExt: Optional[RigidBodiesGlTFExtension] = None
+    # Additional mapping to hook up joints
+    vnode_to_blender: dict = {}
+    joints_to_fixup: list[JointFixup] = []
+    parents_to_fixup: list[ParentFixup] = []
+
     def __init__(self):
         # We need to wait until we create the gltf2UserExtension to import the gltf2 modules
         # Otherwise, it may fail because the gltf2 may not be loaded yet
@@ -24,16 +37,20 @@ class glTF2ImportUserExtension:
 
         self.properties = bpy.context.scene.khr_physics_exporter_props
 
-        # Additional mapping to hook up joints
-        self.vnode_to_blender = {}
-        self.joints_to_fixup = []
-
     def gather_import_gltf_before_hook(self, gltf):
+        if not self.properties.enabled:
+            return
+
         if not gltf.data.extensions:
             return
-        csExt = gltf.data.extensions.get(collisionGeom_Extension_Name)
-        if csExt != None:
-            self.csExt = CollisionShapesGlTFExtension.from_dict(csExt)
+
+        self.vnode_to_blender = {}
+        self.joints_to_fixup = []
+        self.parents_to_fixup = []
+
+        isExt = gltf.data.extensions.get(implicitShapes_Extension_Name)
+        if isExt != None:
+            self.isExt = ImplicitShapesGlTFExtension.from_dict(isExt)
         rbExt = gltf.data.extensions.get(rigidBody_Extension_Name)
         if rbExt != None:
             self.rbExt = RigidBodiesGlTFExtension.from_dict(rbExt)
@@ -55,6 +72,9 @@ class glTF2ImportUserExtension:
         return None
 
     def gather_import_scene_after_nodes_hook(self, gltf_scene, blender_scene, gltf):
+        if not self.properties.enabled:
+            return
+
         for fixup in self.joints_to_fixup:
             other_vnode = gltf.vnodes[fixup.connected_idx]
             other = self.vnode_to_blender[other_vnode]
@@ -64,7 +84,21 @@ class glTF2ImportUserExtension:
             fixup.joint.rigid_body_constraint.object1 = body_a
             fixup.joint.rigid_body_constraint.object2 = body_b
 
+        for fixup in self.parents_to_fixup:
+            other_vnode = gltf.vnodes[fixup.child_idx]
+            other = self.vnode_to_blender[other_vnode]
+            other.parent = fixup.parent_node
+            self._add_rigid_body(other)
+            if fixup.convex_hull:
+                other.rigid_body.collision_shape = "CONVEX_HULL"
+            else:
+                other.rigid_body.collision_shape = "MESH"
+            other.khr_physics_extra_props.non_renderable = True
+
     def gather_import_node_after_hook(self, vnode, gltf_node, blender_object, gltf):
+        if not self.properties.enabled:
+            return
+
         try:
             self.gather_import_node_after_hook_2(vnode, gltf_node, blender_object, gltf)
         except:
@@ -73,6 +107,9 @@ class glTF2ImportUserExtension:
 
     def gather_import_node_after_hook_2(self, vnode, gltf_node, blender_object, gltf):
         if not self.properties.enabled:
+            return
+
+        if self.rbExt == None:
             return
 
         self.vnode_to_blender[vnode] = blender_object
@@ -90,23 +127,22 @@ class glTF2ImportUserExtension:
             or nodeExt.motion != None
         ):
             if not blender_object.rigid_body:
-                # <todo.eoin This is the only way I've found to add a rigid body to a node
-                # There might be a cleaner way.
-                prev_active_objects = bpy.context.view_layer.objects.active
-                bpy.context.view_layer.objects.active = blender_object
-                bpy.ops.rigidbody.object_add()
-                bpy.context.view_layer.objects.active = prev_active_objects
+                self._add_rigid_body(blender_object)
             blender_object.rigid_body.enabled = False  # Static by default
             blender_object.rigid_body.collision_shape = "COMPOUND"
 
             colliderIdx = None
-            if nodeExt.trigger != None:
-                colliderIdx = nodeExt.trigger.shape
-            if nodeExt.collider != None:
-                colliderIdx = nodeExt.collider.shape
+            # This doesn't handle a node which has both a trigger and a collider
+            if nodeExt.trigger != None and nodeExt.trigger.geometry != None:
+                colliderIdx = nodeExt.trigger.geometry.shape
+            if nodeExt.collider != None and nodeExt.collider.geometry != None:
+                colliderIdx = nodeExt.collider.geometry.shape
 
             if colliderIdx != None:
-                shape = self.csExt.shapes[cast(int, colliderIdx)]
+                if self.isExt == None:
+                    # Shouldn't happen - referencing implicit shapes, but not in file
+                    return
+                shape = self.isExt.shapes[cast(int, colliderIdx)]
                 if shape.sphere != None:
                     blender_object.rigid_body.collision_shape = "SPHERE"
                 if shape.box != None:
@@ -134,22 +170,20 @@ class glTF2ImportUserExtension:
                     if shape.cylinder.radiusTop == 0:
                         blender_object.rigid_body.collision_shape = "CONE"
 
-                # <todo.eoin Figure out if we can hook in a different mesh/skin/weights
-                # other than the one associated with this node
-                if shape.mesh != None:
-                    blender_object.rigid_body.collision_shape = "MESH"
+            meshNodeIdx = None
+            convex_hull = False
+            if nodeExt.trigger != None and nodeExt.trigger.geometry != None:
+                meshNodeIdx = nodeExt.trigger.geometry.node
+                convex_hull = nodeExt.trigger.geometry.convex_hull
+            if nodeExt.collider != None and nodeExt.collider.geometry != None:
+                meshNodeIdx = nodeExt.collider.geometry.node
+                convex_hull = nodeExt.collider.geometry.convex_hull
+            if meshNodeIdx != None:
+                #todo: Handle the common case where the referenced node has the exact same mesh,
+                # transform, etc. - in this case, we can just use the existing node
+                self.parents_to_fixup.append(ParentFixup(blender_object, meshNodeIdx, convex_hull))
 
-                    if (
-                        shape.extensions
-                        and rigidBody_Extension_Name in shape.extensions
-                    ):
-                        rbShapeExt = RigidBodiesShapeExtension.from_dict(
-                            shape.extensions[rigidBody_Extension_Name]
-                        )
-                        if rbShapeExt.convexHull:
-                            blender_object.rigid_body.collision_shape = "CONVEX_HULL"
-
-                # todo.eoin Collision systems
+            # todo.eoin Collision systems
 
             if nodeExt.collider != None and nodeExt.collider.physics_material != None:
                 mat = self.rbExt.materials[cast(int, nodeExt.collider.physics_material)]
@@ -300,6 +334,14 @@ class glTF2ImportUserExtension:
                                 joint.use_spring_ang_z = True
                                 joint.spring_stiffness_ang_z = spring
                                 joint.spring_damping_ang_x = damping
+
+    def _add_rigid_body(self, blender_object):
+        # <todo.eoin This is the only way I've found to add a rigid body to a node
+        # There might be a cleaner way.
+        prev_active_objects = bpy.context.view_layer.objects.active
+        bpy.context.view_layer.objects.active = blender_object
+        bpy.ops.rigidbody.object_add()
+        bpy.context.view_layer.objects.active = prev_active_objects
 
     @staticmethod
     def _populateDrive(

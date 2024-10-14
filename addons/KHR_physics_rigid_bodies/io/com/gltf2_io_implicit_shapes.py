@@ -1,11 +1,11 @@
 from . import from_vec
-from io_scene_gltf2.io.com.gltf2_io import from_union, from_none, from_float, from_bool
-from io_scene_gltf2.io.com.gltf2_io import from_str, from_list, from_int, from_dict
+from io_scene_gltf2.io.com.gltf2_io import from_union, from_none, from_float
+from io_scene_gltf2.io.com.gltf2_io import from_str, from_list, from_dict
 from io_scene_gltf2.io.com.gltf2_io import to_class, from_extension, from_extra
 from mathutils import Vector
 from typing import Optional, Dict, Any
 
-collisionGeom_Extension_Name = "KHR_collision_shapes"
+implicitShapes_Extension_Name = "KHR_implicit_shapes"
 
 
 class Sphere:
@@ -153,65 +153,12 @@ class Cylinder:
         result.extras = obj.get("extras")
         return result
 
-
-class Mesh:
-    mesh: Optional[int] = None
-    skin: Optional[int] = None
-    # Blender never sets instance weights, always creating a new mesh instance.
-    # (See __gather_weights in gltf2_blender_gather_nodes), so neither weights
-    # nor useNodeWeights will ever be populated. May change in the future.
-    weights: Optional[list[float]] = None
-    useNodeWeights: Optional[bool] = None
-    extensions: Optional[Dict[str, Any]] = None
-    extras: Any = None
-
-    def __init__(self, mesh):
-        self.mesh = mesh
-
-    def to_dict(self):
-        result = {}
-        result["mesh"] = self.mesh
-        result["skin"] = self.skin
-        result["weights"] = from_union(
-            [lambda x: from_list(lambda x: from_float(x), x), from_none], self.weights
-        )
-        result["useNodeWeights"] = self.useNodeWeights
-        result["extensions"] = from_union(
-            [lambda x: from_dict(from_extension, x), from_none], self.extensions
-        )
-        result["extras"] = from_extra(self.extras)
-        return result
-
-    @staticmethod
-    def from_dict(obj):
-        assert isinstance(obj, dict)
-        if obj == None:
-            return None
-        mesh = from_union([from_int, from_none], obj.get("mesh"))
-        result = Mesh(mesh)
-        result.skin = from_union([from_int, from_none], obj.get("skin"))
-        result.useNodeWeights = from_union(
-            [from_bool, from_none], obj.get("useNodeWeights")
-        )
-        result.weights = from_union(
-            [lambda x: from_list(lambda x: from_float(x), x), from_none],
-            obj.get("weights"),
-        )
-        result.extensions = from_union(
-            [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
-            obj.get("extensions"),
-        )
-        result.extras = obj.get("extras")
-        return result
-
-
 class Shape:
     type: Optional[str] = None
     sphere: Optional[Sphere] = None
     box: Optional[Box] = None
     capsule: Optional[Capsule] = None
     cylinder: Optional[Cylinder] = None
-    mesh: Optional[Mesh] = None
     extensions: Optional[Dict[str, Any]] = None
     extras: Any = None
 
@@ -228,7 +175,6 @@ class Shape:
         result["cylinder"] = from_union(
             [lambda x: to_class(Cylinder, x), from_none], self.cylinder
         )
-        result["mesh"] = from_union([lambda x: to_class(Mesh, x), from_none], self.mesh)
         result["extensions"] = from_union(
             [lambda x: from_dict(from_extension, x), from_none], self.extensions
         )
@@ -246,7 +192,6 @@ class Shape:
         result.cylinder = from_union(
             [Cylinder.from_dict, from_none], obj.get("cylinder")
         )
-        result.mesh = from_union([Mesh.from_dict, from_none], obj.get("mesh"))
         result.extensions = from_union(
             [lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
             obj.get("extensions"),
@@ -255,7 +200,7 @@ class Shape:
         return result
 
 
-class CollisionShapesGlTFExtension:
+class ImplicitShapesGlTFExtension:
     shapes: list[Shape] = []
     extensions: Optional[Dict[str, Any]] = None
     extras: Any = None
@@ -276,7 +221,7 @@ class CollisionShapesGlTFExtension:
     @staticmethod
     def from_dict(obj):
         assert isinstance(obj, dict)
-        result = CollisionShapesGlTFExtension()
+        result = ImplicitShapesGlTFExtension()
         result.shapes = from_union(
             [lambda x: from_list(Shape.from_dict, x), from_none], obj.get("shapes")
         )
