@@ -587,7 +587,7 @@ class glTF2ExportUserExtension:
         geom = Geometry()
 
         if node.rigid_body.collision_shape in ("CONVEX_HULL", "MESH"):
-            shape_node = self._constructNode("physicsMeshDataNode", Vector((0,0,0)), Quaternion((0,0,0,1)), export_settings)
+            shape_node = self._constructNode("physicsMeshDataNode", Vector((0,0,0)), Quaternion((1,0,0,0)), export_settings)
             shape_node.mesh = glNode.mesh
             shape_node.skin = glNode.skin
             geom.convex_hull = node.rigid_body.collision_shape == "CONVEX_HULL"
