@@ -21,10 +21,9 @@ def draw_export(context, layout):
     exportProps = bpy.context.scene.khr_physics_exporter_props
     header, body = layout.panel("KHR_physics_rigid_bodies_exporter", default_closed=False)
     header.use_property_split = False
-    header.prop(exportProps, 'enabled')
-    header.active = exportProps.enabled
-    if body != None:
-        body.use_property_split = False
+    header.prop(exportProps, 'enabled', text="")
+    if body:
+        header.active = exportProps.enabled
         body.prop(exportProps, "reparent_bones")
 
 def draw_import(context, layout):
