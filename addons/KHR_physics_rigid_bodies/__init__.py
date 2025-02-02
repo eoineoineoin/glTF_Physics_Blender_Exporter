@@ -3,6 +3,10 @@ import bpy
 from .blender.com import gltf2_blender_rigid_bodies_ui as rb_extra_ui
 from .blender.exp.gltf2_blender_rigid_bodies import glTF2ExportUserExtension
 from .blender.imp.gltf2_blender_rigid_bodies import glTF2ImportUserExtension
+from io_scene_gltf2 import exporter_extension_layout_draw
+from .io.com.gltf2_io_rigid_bodies import (
+    rigidBody_Extension_Name
+)
 
 bl_info = {
     "name": "KHR_physics_rigid_bodies",
@@ -36,7 +40,9 @@ def draw_import(context, layout):
 
 def register():
     rb_extra_ui.register_ui()
+    exporter_extension_layout_draw[rigidBody_Extension_Name] = draw_export
 
 def unregister():
     rb_extra_ui.unregister_ui()
+    del exporter_extension_layout_draw[rigidBody_Extension_Name]
 
