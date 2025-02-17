@@ -11,8 +11,8 @@ from .io.com.gltf2_io_rigid_bodies import (
 bl_info = {
     "name": "KHR_physics_rigid_bodies",
     "category": "Import-Export",
-    "version": (0, 2, 2),
-    "blender": (4, 2, 0),
+    "version": (0, 2, 3),
+    "blender": (4, 3, 0),
     "location": "File > Export > glTF 2.0",
     "description": "Extension for adding rigid body information to exported glTF file",
     "tracker_url": "https://github.com/eoineoineoin/glTF_Physics_Blender_Exporter/issues",
