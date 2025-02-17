@@ -1,8 +1,8 @@
 schema_version = "0.1.0"
 id = "KHR_physics_rigid_bodies"
-name = "Physics Rigid Bodies"
+name = "glTF Physics Rigid Bodies"
 version = "0.5.0"
-tagline = ""
+tagline = "Includes rigid body info when exporting glTF files."
 maintainer = "Eoin Mcloughlin"
 type = "add-on"
 permissions = ["files"]
