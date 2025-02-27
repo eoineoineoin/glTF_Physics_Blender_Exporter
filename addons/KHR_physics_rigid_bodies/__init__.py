@@ -1,6 +1,7 @@
 import bpy
 
 from .blender.com import gltf2_blender_rigid_bodies_ui as rb_extra_ui
+from .blender.com import gltf2_blender_rigid_bodies_ops as rb_ops
 from .blender.exp.gltf2_blender_rigid_bodies import glTF2ExportUserExtension
 from .blender.imp.gltf2_blender_rigid_bodies import glTF2ImportUserExtension
 from io_scene_gltf2 import exporter_extension_layout_draw
@@ -21,28 +22,36 @@ bl_info = {
     "url": "https://github.com/eoineoineoin/glTF_Physics_Blender_Exporter",
 }
 
+
 def draw_export(context, layout):
     exportProps = bpy.context.scene.khr_physics_exporter_props
-    header, body = layout.panel("KHR_physics_rigid_bodies_exporter", default_closed=False)
+    header, body = layout.panel(
+        "KHR_physics_rigid_bodies_exporter", default_closed=False
+    )
     header.use_property_split = False
-    header.prop(exportProps, 'enabled')
+    header.prop(exportProps, "enabled")
     header.active = exportProps.enabled
     if body != None:
         body.use_property_split = False
         body.prop(exportProps, "reparent_bones")
 
+
 def draw_import(context, layout):
     importProps = bpy.context.scene.khr_physics_importer_props
-    header, body = layout.panel("KHR_physics_rigid_bodies_importer", default_closed=False)
+    header, body = layout.panel(
+        "KHR_physics_rigid_bodies_importer", default_closed=False
+    )
     header.use_property_split = False
-    header.prop(importProps, 'enabled')
+    header.prop(importProps, "enabled")
     header.active = importProps.enabled
 
+
 def register():
+    rb_ops.register_ops()
     rb_extra_ui.register_ui()
     exporter_extension_layout_draw[rigidBody_Extension_Name] = draw_export
 
 def unregister():
+    rb_ops.unregister_ops()
     rb_extra_ui.unregister_ui()
     del exporter_extension_layout_draw[rigidBody_Extension_Name]
-
