@@ -2,6 +2,7 @@ import bpy
 from typing import Tuple
 from mathutils import Vector
 
+
 def accessMeshData(node, apply_modifiers):
     """RAII-style function to access mesh data with modifiers attached"""
 
@@ -27,6 +28,7 @@ def accessMeshData(node, apply_modifiers):
 
     return ScopedMesh(node, apply_modifiers)
 
+
 def calculate_cone_capsule_params(node, meshData) -> Tuple[float, float, float]:
     """Given a mesh data, calculate suitable cone/capsule parameters.
     This attempts to mimic Blender's behaviour when generating these shapes,
@@ -38,19 +40,17 @@ def calculate_cone_capsule_params(node, meshData) -> Tuple[float, float, float]:
         (0, 0, 1)
     )  # Use blender's up axis, instead of glTF (and transform later)
     maxHalfHeight = 0
-    maxRadiusSquared = 0
+    maxRadius= 0
     for v in meshData.vertices:
         maxHalfHeight = max(maxHalfHeight, abs(v.co.dot(primaryAxis)))
-        radiusSquared = (
-            v.co - primaryAxis * v.co.dot(primaryAxis)
-        ).length_squared
-        maxRadiusSquared = max(maxRadiusSquared, radiusSquared)
+        coPerp = v.co - primaryAxis * v.co.dot(primaryAxis)
+        # This doesn't ensure the vertex is enclosed within the shape;
+        # however, this is consistent with Blender's calculation
+        coRadius = max(*map(abs, coPerp))
+        maxRadius = max(maxRadius, coRadius)
     height = maxHalfHeight * 2
-    radiusBottom = maxRadiusSquared**0.5
-    radiusTop = (
-        radiusBottom if node.rigid_body.collision_shape != "CONE" else 0
-    )
+    radiusBottom = maxRadius
+    radiusTop = radiusBottom if node.rigid_body.collision_shape != "CONE" else 0
     if node.rigid_body.collision_shape == "CAPSULE":
         height = height - radiusBottom * 2
     return height, radiusTop, radiusBottom
-
