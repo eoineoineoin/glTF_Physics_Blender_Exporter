@@ -1,4 +1,5 @@
 import bpy
+from ...blender.com.gltf2_blender_rigid_bodies_util import *
 from ...io.com.gltf2_io_implicit_shapes import *
 from ...io.com.gltf2_io_rigid_bodies import *
 from io_scene_gltf2.io.com import gltf2_io
@@ -597,7 +598,7 @@ class glTF2ExportUserExtension:
         shape = Shape()
         # If the shape is a geometric primitive, we may have to apply modifiers
         # to see the final geometry. (glNode has already had modifiers applied)
-        with self._accessMeshData(node, export_settings) as meshData:
+        with accessMeshData(node, export_settings['gltf_apply']) as meshData:
             if node.rigid_body.collision_shape == "SPHERE":
                 maxRR = 0
                 for v in meshData.vertices:
@@ -617,26 +618,7 @@ class glTF2ExportUserExtension:
                 )
             elif node.rigid_body.collision_shape in ("CAPSULE", "CONE", "CYLINDER"):
                 if not node.khr_physics_extra_props.cone_capsule_override:
-                    # User hasn't overridden shape params, so we need to calculate them
-                    # Maybe there's a way to extract them from Blender?
-                    primaryAxis = Vector(
-                        (0, 0, 1)
-                    )  # Use blender's up axis, instead of glTF (and transform later)
-                    maxHalfHeight = 0
-                    maxRadiusSquared = 0
-                    for v in meshData.vertices:
-                        maxHalfHeight = max(maxHalfHeight, abs(v.co.dot(primaryAxis)))
-                        radiusSquared = (
-                            v.co - primaryAxis * v.co.dot(primaryAxis)
-                        ).length_squared
-                        maxRadiusSquared = max(maxRadiusSquared, radiusSquared)
-                    height = maxHalfHeight * 2
-                    radiusBottom = maxRadiusSquared**0.5
-                    radiusTop = (
-                        radiusBottom if node.rigid_body.collision_shape != "CONE" else 0
-                    )
-                    if node.rigid_body.collision_shape == "CAPSULE":
-                        height = height - radiusBottom * 2
+                    height, radiusTop, radiusBottom = calculate_cone_capsule_params(node, meshData)
                 else:
                     height = node.khr_physics_extra_props.cone_capsule_height
                     radiusBottom = (
@@ -710,31 +692,6 @@ class glTF2ExportUserExtension:
             extension=shape.to_dict(),
         )
         return geom
-
-    def _accessMeshData(self, node, export_settings):
-        """RAII-style function to access mesh data with modifiers attached"""
-
-        class ScopedMesh:
-            def __init__(self, node, export_settings):
-                self.node = node
-                self.export_settings = export_settings
-                self.modifiedNode = None
-
-            def __enter__(self):
-                if self.export_settings["gltf_apply"]:
-                    depsGraph = bpy.context.evaluated_depsgraph_get()
-                    self.modifiedNode = node.evaluated_get(depsGraph)
-                    return self.modifiedNode.to_mesh(
-                        preserve_all_data_layers=True, depsgraph=depsGraph
-                    )
-                else:
-                    return self.node.data
-
-            def __exit__(self, *args):
-                if self.modifiedNode:
-                    self.modifiedNode.to_mesh_clear()
-
-        return ScopedMesh(node, export_settings)
 
     def _constructNode(self, name, translation, rotation, export_settings):
         return gltf2_io.Node(

@@ -1,6 +1,7 @@
 import bpy
 
 from .blender.com import gltf2_blender_rigid_bodies_ui as rb_extra_ui
+from .blender.com import gltf2_blender_rigid_bodies_ops as rb_ops
 from .blender.exp.gltf2_blender_rigid_bodies import glTF2ExportUserExtension
 from .blender.imp.gltf2_blender_rigid_bodies import glTF2ImportUserExtension
 
@@ -35,8 +36,10 @@ def draw_import(context, layout):
     header.active = importProps.enabled
 
 def register():
+    rb_ops.register_ops()
     rb_extra_ui.register_ui()
 
 def unregister():
+    rb_ops.unregister_ops()
     rb_extra_ui.unregister_ui()
 
