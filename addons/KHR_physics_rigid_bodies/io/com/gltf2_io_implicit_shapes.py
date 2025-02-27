@@ -153,6 +153,7 @@ class Cylinder:
         result.extras = obj.get("extras")
         return result
 
+
 class Shape:
     type: Optional[str] = None
     sphere: Optional[Sphere] = None

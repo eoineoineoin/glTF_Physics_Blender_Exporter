@@ -557,7 +557,10 @@ class KHR_PT_rigid_body_shape(KHR_PT_rigid_body_panel_base):
             row.prop(obj.khr_physics_extra_props, "cone_capsule_override")
             row = flow.column()
             row.active = obj.khr_physics_extra_props.cone_capsule_override
-            row.operator("khr_physics_rigid_bodies.calculate_cone_capsule_params", text="Calculate from mesh")
+            row.operator(
+                "khr_physics_rigid_bodies.calculate_cone_capsule_params",
+                text="Calculate from mesh",
+            )
             row.prop(obj.khr_physics_extra_props, "cone_capsule_radius_bottom")
             row.prop(obj.khr_physics_extra_props, "cone_capsule_height")
             row.prop(obj.khr_physics_extra_props, "cone_capsule_radius_top")

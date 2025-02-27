@@ -582,13 +582,20 @@ class glTF2ExportUserExtension:
             extension=collision_filter.to_dict(),
         )
 
-    def _generateGeometryData(self, node, glNode, export_settings) -> Optional[Geometry]:
+    def _generateGeometryData(
+        self, node, glNode, export_settings
+    ) -> Optional[Geometry]:
         if node.rigid_body == None or node.rigid_body.collision_shape == "COMPOUND":
             return None
         geom = Geometry()
 
         if node.rigid_body.collision_shape in ("CONVEX_HULL", "MESH"):
-            shape_node = self._constructNode("physicsMeshDataNode", Vector((0,0,0)), Quaternion((1,0,0,0)), export_settings)
+            shape_node = self._constructNode(
+                "physicsMeshDataNode",
+                Vector((0, 0, 0)),
+                Quaternion((1, 0, 0, 0)),
+                export_settings,
+            )
             shape_node.mesh = glNode.mesh
             shape_node.skin = glNode.skin
             geom.convex_hull = node.rigid_body.collision_shape == "CONVEX_HULL"
@@ -598,7 +605,7 @@ class glTF2ExportUserExtension:
         shape = Shape()
         # If the shape is a geometric primitive, we may have to apply modifiers
         # to see the final geometry. (glNode has already had modifiers applied)
-        with accessMeshData(node, export_settings['gltf_apply']) as meshData:
+        with accessMeshData(node, export_settings["gltf_apply"]) as meshData:
             if node.rigid_body.collision_shape == "SPHERE":
                 maxRR = 0
                 for v in meshData.vertices:
@@ -618,7 +625,9 @@ class glTF2ExportUserExtension:
                 )
             elif node.rigid_body.collision_shape in ("CAPSULE", "CONE", "CYLINDER"):
                 if not node.khr_physics_extra_props.cone_capsule_override:
-                    height, radiusTop, radiusBottom = calculate_cone_capsule_params(node, meshData)
+                    height, radiusTop, radiusBottom = calculate_cone_capsule_params(
+                        node, meshData
+                    )
                 else:
                     height = node.khr_physics_extra_props.cone_capsule_height
                     radiusBottom = (

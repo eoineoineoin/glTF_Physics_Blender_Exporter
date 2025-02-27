@@ -11,12 +11,15 @@ class JointFixup:
         self.joint = joint
         self.connected_idx = connected_idx
 
+
 class ParentFixup:
     """Helper class to store information about mesh node parenting"""
+
     def __init__(self, parent_node, child_idx, convex_hull):
         self.parent_node = parent_node
         self.child_idx = child_idx
         self.convex_hull = convex_hull
+
 
 class glTF2ImportUserExtension:
     isExt: Optional[ImplicitShapesGlTFExtension] = None
@@ -103,6 +106,7 @@ class glTF2ImportUserExtension:
             self.gather_import_node_after_hook_2(vnode, gltf_node, blender_object, gltf)
         except:
             import traceback
+
             print(traceback.format_exc())
 
     def gather_import_node_after_hook_2(self, vnode, gltf_node, blender_object, gltf):
@@ -179,9 +183,11 @@ class glTF2ImportUserExtension:
                 meshNodeIdx = nodeExt.collider.geometry.node
                 convex_hull = nodeExt.collider.geometry.convex_hull
             if meshNodeIdx != None:
-                #todo: Handle the common case where the referenced node has the exact same mesh,
+                # todo: Handle the common case where the referenced node has the exact same mesh,
                 # transform, etc. - in this case, we can just use the existing node
-                self.parents_to_fixup.append(ParentFixup(blender_object, meshNodeIdx, convex_hull))
+                self.parents_to_fixup.append(
+                    ParentFixup(blender_object, meshNodeIdx, convex_hull)
+                )
 
             # todo.eoin Collision systems
 
