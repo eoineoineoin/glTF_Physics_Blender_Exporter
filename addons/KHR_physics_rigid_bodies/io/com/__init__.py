@@ -12,4 +12,4 @@ def from_vec(x):
 def from_quat(x):
     """Utility to convert a quaternion, in the style of gltf2_io"""
     assert isinstance(x, Quaternion)
-    return from_list(from_float, list(x))
+    return from_list(from_float, [x.x, x.y, x.z, x.w])

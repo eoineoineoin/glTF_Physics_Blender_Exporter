@@ -8,6 +8,11 @@ from mathutils import Matrix, Euler
 # Constant used to construct some quaternions when switching up axis
 halfSqrt2 = 2**0.5 * 0.5
 
+# These need to be imported without underscores to avoid name mangling issues:
+from io_scene_gltf2.blender.exp.nodes import __convert_swizzle_scale as convert_swizzle_scale
+from io_scene_gltf2.blender.exp.nodes import __convert_swizzle_rotation as convert_swizzle_rotation
+from io_scene_gltf2.blender.exp.nodes import __convert_swizzle_location as convert_swizzle_location
+
 
 class glTF2ExportUserExtension:
     isExt: ImplicitShapesGlTFExtension
@@ -165,25 +170,25 @@ class glTF2ExportUserExtension:
                 a_trs = a.decompose()
                 gltf_rb.translation = [
                     x
-                    for x in self.__convert_swizzle_location(a_trs[0], export_settings)
+                    for x in convert_swizzle_location(a_trs[0], export_settings)
                 ]
                 gltf_rb.rotation = self._serializeQuaternion(
-                    self.__convert_swizzle_rotation(a_trs[1], export_settings)
+                    convert_swizzle_rotation(a_trs[1], export_settings)
                 )
                 gltf_rb.scale = [
-                    x for x in self.__convert_swizzle_scale(a_trs[2], export_settings)
+                    x for x in convert_swizzle_scale(a_trs[2], export_settings)
                 ]
 
                 b_trs = b.decompose()
                 gltf_bone.translation = [
                     x
-                    for x in self.__convert_swizzle_location(b_trs[0], export_settings)
+                    for x in convert_swizzle_location(b_trs[0], export_settings)
                 ]
                 gltf_bone.rotation = self._serializeQuaternion(
-                    self.__convert_swizzle_rotation(b_trs[1], export_settings)
+                    convert_swizzle_rotation(b_trs[1], export_settings)
                 )
                 gltf_bone.scale = [
-                    x for x in self.__convert_swizzle_scale(b_trs[2], export_settings)
+                    x for x in convert_swizzle_scale(b_trs[2], export_settings)
                 ]
 
                 # In gltf_bone_parent, replace gltf_bone with gltf_rb
@@ -294,24 +299,24 @@ class glTF2ExportUserExtension:
                 if extraProps.gravity_factor != 1.0:
                     motion.gravity_factor = extraProps.gravity_factor
 
-                lv = self.__convert_swizzle_location(
+                lv = convert_swizzle_location(
                     Vector(extraProps.linear_velocity), export_settings
                 )
                 if lv.length_squared != 0:
                     motion.linear_velocity = lv
-                av = self.__convert_swizzle_location(
+                av = convert_swizzle_location(
                     Vector(extraProps.angular_velocity), export_settings
                 )
                 if av.length_squared != 0:
                     motion.angular_velocity = av
 
                 if extraProps.enable_com_override:
-                    motion.center_of_mass = self.__convert_swizzle_location(
+                    motion.center_of_mass = convert_swizzle_location(
                         Vector(extraProps.center_of_mass), export_settings
                     )
 
                 if extraProps.enable_inertia_override:
-                    motion.inertia_diagonal = self.__convert_swizzle_scale(
+                    motion.inertia_diagonal = convert_swizzle_scale(
                         extraProps.inertia_major_axis, export_settings
                     )
                     motion.inertia_orientation = Euler(
@@ -620,7 +625,7 @@ class glTF2ExportUserExtension:
                     ]
                 shape.type = "box"
                 shape.box = Box(
-                    size=self.__convert_swizzle_scale(maxHalfExtent, export_settings)
+                    size= convert_swizzle_scale(maxHalfExtent, export_settings)
                     * 2
                 )
             elif node.rigid_body.collision_shape in ("CAPSULE", "CONE", "CYLINDER"):
@@ -706,10 +711,10 @@ class glTF2ExportUserExtension:
         return gltf2_io.Node(
             name=name,
             translation=[
-                x for x in self.__convert_swizzle_location(translation, export_settings)
+                x for x in convert_swizzle_location(translation, export_settings)
             ],
             rotation=self._serializeQuaternion(
-                self.__convert_swizzle_rotation(rotation, export_settings)
+                convert_swizzle_rotation(rotation, export_settings)
             ),
             matrix=[],
             camera=None,
@@ -721,33 +726,6 @@ class glTF2ExportUserExtension:
             skin=None,
             weights=None,
         )
-
-    # Copy-pasted from the glTF exporter; are they accessible some other way, without having to duplicate?
-    def __convert_swizzle_location(self, loc, export_settings):
-        """Convert a location from Blender coordinate system to glTF coordinate system."""
-        if export_settings["gltf_yup"]:
-            return Vector((loc[0], loc[2], -loc[1]))
-        else:
-            return Vector((loc[0], loc[1], loc[2]))
-
-    # Copy-pasted from the glTF exporter; are they accessible some other way, without having to duplicate?
-    def __convert_swizzle_scale(self, scale, export_settings):
-        """Convert a scale from Blender coordinate system to glTF coordinate system."""
-        if export_settings["gltf_yup"]:
-            return Vector((scale[0], scale[2], scale[1]))
-        else:
-            return Vector((scale[0], scale[1], scale[2]))
-
-    # Copy-pasted from the glTF exporter; are they accessible some other way, without having to duplicate?
-    def __convert_swizzle_rotation(self, rot, export_settings):
-        """
-        Convert a quaternion rotation from Blender coordinate system to glTF coordinate system.
-        'w' is still at first position.
-        """
-        if export_settings["gltf_yup"]:
-            return Quaternion((rot[0], rot[1], rot[3], -rot[2]))
-        else:
-            return Quaternion((rot[0], rot[1], rot[2], rot[3]))
 
     def _serializeQuaternion(self, q):
         """Converts a quaternion to a type which can be serialized, with components in correct order"""
