@@ -4,7 +4,7 @@ from .blender.com import gltf2_blender_rigid_bodies_ui as rb_extra_ui
 from .blender.com import gltf2_blender_rigid_bodies_ops as rb_ops
 from .blender.exp.gltf2_blender_rigid_bodies import glTF2ExportUserExtension
 from .blender.imp.gltf2_blender_rigid_bodies import glTF2ImportUserExtension
-from io_scene_gltf2 import exporter_extension_layout_draw
+from io_scene_gltf2 import exporter_extension_layout_draw, importer_extension_layout_draw
 from .io.com.gltf2_io_rigid_bodies import (
     rigidBody_Extension_Name
 )
@@ -50,8 +50,10 @@ def register():
     rb_ops.register_ops()
     rb_extra_ui.register_ui()
     exporter_extension_layout_draw[rigidBody_Extension_Name] = draw_export
+    importer_extension_layout_draw[rigidBody_Extension_Name] = draw_import
 
 def unregister():
     rb_ops.unregister_ops()
     rb_extra_ui.unregister_ui()
     del exporter_extension_layout_draw[rigidBody_Extension_Name]
+    del importer_extension_layout_draw[rigidBody_Extension_Name]
