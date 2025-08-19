@@ -213,7 +213,7 @@ class glTF2ImportUserExtension:
                 if nodeExt.motion.mass == 0:
                     blender_object.khr_physics_extra_props.infinite_mass = True
             if nodeExt.motion.is_kinematic != None:
-                blender_object.rigid_body.is_kinematic = nodeExt.motion.is_kinematic
+                blender_object.rigid_body.kinematic = nodeExt.motion.is_kinematic
             if nodeExt.motion.center_of_mass != None:
                 blender_object.khr_physics_extra_props.center_of_mass = (
                     nodeExt.motion.center_of_mass
