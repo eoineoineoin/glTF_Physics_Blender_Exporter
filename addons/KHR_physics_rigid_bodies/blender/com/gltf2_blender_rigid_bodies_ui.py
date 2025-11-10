@@ -10,11 +10,6 @@ from ...io.com.gltf2_io_rigid_bodies import (
 )
 
 
-class KHR_rigid_body_scene_properties(bpy.types.PropertyGroup):
-    draw_velocity: bpy.props.BoolProperty(name="Draw Velocities", default=False)
-    draw_mass_props: bpy.props.BoolProperty(name="Draw Mass Properties", default=False)
-
-
 class KHR_rigid_body_node_properties(bpy.types.PropertyGroup):
     # non_renderable is a bit of a hack. Hopefully temporary! Issue is that in Blender,
     # the collision shape is generated from the mesh associated with a node. Normally,
@@ -180,7 +175,9 @@ class KHR_rigid_body_importer_properties(bpy.types.PropertyGroup):
 
 
 class KHR_rigid_body_viewport_render:
-    def __init__(self):
+    def __init__(self, draw_velocity, draw_mass_props):
+        self.should_draw_velocity = draw_velocity
+        self.should_draw_mass_props = draw_mass_props
         if not bpy.app.background:
             shaderType = (
                 "3D_UNIFORM_COLOR" if bpy.app.version[0] < 4 else "UNIFORM_COLOR"
@@ -207,10 +204,10 @@ class KHR_rigid_body_viewport_render:
 
         obj = bpy.context.object
 
-        if bpy.context.scene.khr_physics_scene_viewer_props.draw_velocity:
+        if self.should_draw_velocity:
             self.draw_velocity(obj)
 
-        if bpy.context.scene.khr_physics_scene_viewer_props.draw_mass_props:
+        if self.should_draw_mass_props:
             self.draw_mass_props(obj)
 
         if obj.rigid_body.collision_shape in ("CAPSULE", "CYLINDER", "CONE"):
@@ -385,11 +382,47 @@ class KHR_rigid_body_viewport_render:
             self.shader.uniform_float("color", (1, 0, 1, 1))
             batch.draw(self.shader)
 
+class _modalDrawOperator(bpy.types.Operator):
+    def modal(self, context, event):
+        context.area.tag_redraw()
 
-viewportRenderHelper = KHR_rigid_body_viewport_render()
+        if event.type == 'LEFTMOUSE':
+            bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
+            return {'FINISHED'}
+        elif event.type in {'RIGHTMOUSE', 'ESC'}:
+            bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
+            return {'CANCELLED'}
 
+        return {'RUNNING_MODAL'}
 
-class KHR_MT_rigid_body_visualizer(bpy.types.Panel):
+    def invoke(self, context, event):
+        if context.area.type == 'VIEW_3D':
+            handlerFunc = self.getRenderHandler()
+            self._handle = bpy.types.SpaceView3D.draw_handler_add(handlerFunc, (), 'WINDOW', 'POST_VIEW')
+
+            context.window_manager.modal_handler_add(self)
+            return {'RUNNING_MODAL'}
+        else:
+            self.report({'WARNING'}, "View3D not found, cannot run operator")
+            return {'CANCELLED'}
+
+class KHR_OT_DrawVelocityOperator(_modalDrawOperator):
+    """Draws velocity info in viewport"""
+    bl_idname = "view3d.khr_draw_velocity"
+    bl_label = "Display Rigid Body Physics Velocity"
+    def getRenderHandler(self):
+        self._handler = KHR_rigid_body_viewport_render(draw_velocity=True, draw_mass_props=False)
+        return self._handler.drawExtraPhysicsProperties
+
+class KHR_OT_DrawMassPropsOperator(_modalDrawOperator):
+    """Draws mass properties in viewport"""
+    bl_idname = "view3d.khr_draw_mass_props"
+    bl_label = "Display Rigid Body Physics Mass Properties"
+    def getRenderHandler(self):
+        self._handler = KHR_rigid_body_viewport_render(draw_velocity=False, draw_mass_props=True)
+        return self._handler.drawExtraPhysicsProperties
+
+class KHR_PT_rigid_body_visualizer(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "KHR Physics"
@@ -405,10 +438,9 @@ class KHR_MT_rigid_body_visualizer(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         row = layout.row()
-        row.prop(context.scene.khr_physics_scene_viewer_props, "draw_velocity")
+        row.operator(KHR_DrawVelocityOperator.bl_idname)
         row = layout.row()
-        row.prop(context.scene.khr_physics_scene_viewer_props, "draw_mass_props")
-
+        row.operator(KHR_DrawMassPropsOperator.bl_idname)
 
 class KHR_PT_rigid_body_panel_base(bpy.types.Panel):
     bl_label = "KHR Physics Extensions"
@@ -720,16 +752,12 @@ class KHR_PT_rigid_body_constraint_drives_linear(
         )
 
 
-# Seems we need to keep a global utility around for drawing in the 3D viewport:
-draw_handler = None
-
 registered_classes = [
     KHR_rigid_body_exporter_properties,
     KHR_rigid_body_importer_properties,
-    KHR_rigid_body_scene_properties,
     KHR_rigid_body_node_properties,
     KHR_rigid_body_constraint_node_properties,
-    KHR_MT_rigid_body_visualizer,
+    KHR_PT_rigid_body_visualizer,
     KHR_PT_rigid_body_panel,
     KHR_PT_rigid_body_motion,
     KHR_PT_rigid_body_shape,
@@ -740,6 +768,8 @@ registered_classes = [
     KHR_PT_rigid_body_constraint_drives,
     KHR_PT_rigid_body_constraint_drives_angular,
     KHR_PT_rigid_body_constraint_drives_linear,
+    KHR_OT_DrawVelocityOperator,
+    KHR_OT_DrawMassPropsOperator,
 ]
 
 
@@ -753,28 +783,17 @@ def register_ui():
     bpy.types.Scene.khr_physics_importer_props = bpy.props.PointerProperty(
         type=KHR_rigid_body_importer_properties
     )
-    bpy.types.Scene.khr_physics_scene_viewer_props = bpy.props.PointerProperty(
-        type=KHR_rigid_body_scene_properties
-    )
     bpy.types.Object.khr_physics_extra_props = bpy.props.PointerProperty(
         type=KHR_rigid_body_node_properties
     )
     bpy.types.Object.khr_physics_extra_constraint_props = bpy.props.PointerProperty(
         type=KHR_rigid_body_constraint_node_properties
     )
-    global draw_handler
-    draw_handler = bpy.types.SpaceView3D.draw_handler_add(
-        viewportRenderHelper.drawExtraPhysicsProperties, (), "WINDOW", "POST_VIEW"
-    )
-
 
 def unregister_ui():
     for panel in registered_classes:
         bpy.utils.unregister_class(panel)
     del bpy.types.Scene.khr_physics_exporter_props
-    del bpy.types.Scene.khr_physics_scene_viewer_props
     del bpy.types.Object.khr_physics_extra_props
 
-    global draw_handler
-    bpy.types.SpaceView3D.draw_handler_remove(draw_handler, "WINDOW")
-    draw_handler = None
+
