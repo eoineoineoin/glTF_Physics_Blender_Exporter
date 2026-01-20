@@ -391,13 +391,13 @@ class JointDescription:
 class Geometry:
     convex_hull: Optional[bool] = None
     shape: Optional[Union[int, ChildOfRootExtension]] = None
-    node: Optional[Union[int, ChildOfRootExtension]] = None
+    mesh: Optional[Union[int, ChildOfRootExtension]] = None
 
     def to_dict(self):
         result = {}
         result["convexHull"] = from_union([from_bool, from_none], self.convex_hull)
         result["shape"] = self.shape
-        result["node"] = self.node
+        result["mesh"] = self.mesh
         return result
 
     @staticmethod
@@ -408,7 +408,7 @@ class Geometry:
         geom = Geometry()
         geom.convex_hull = from_union([from_bool, from_none], obj.get("convexHull"))
         geom.shape = from_union([from_int, from_none], obj.get("shape"))
-        geom.node = from_union([from_int, from_none], obj.get("node"))
+        geom.mesh = from_union([from_int, from_none], obj.get("mesh"))
         return geom
 
 

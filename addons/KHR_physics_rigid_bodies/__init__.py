@@ -3,7 +3,7 @@ import bpy
 bl_info = {
     "name": "KHR_physics_rigid_bodies",
     "category": "Import-Export",
-    "version": (0, 2, 4),
+    "version": (0, 3, 0),
     "blender": (4, 3, 0),
     "location": "File > Export > glTF 2.0",
     "description": "Extension for adding rigid body information to exported glTF file",
