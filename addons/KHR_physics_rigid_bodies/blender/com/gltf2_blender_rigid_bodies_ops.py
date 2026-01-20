@@ -21,7 +21,7 @@ class CalculateConeCapsuleParams(bpy.types.Operator):
             extra_props.cone_capsule_radius_bottom = radiusBottom
             extra_props.cone_capsule_radius_top = radiusTop
         for area in bpy.context.window.screen.areas:
-            if area.type == 'VIEW_3D':
+            if area.type == "VIEW_3D":
                 area.tag_redraw()
         return {"FINISHED"}
 

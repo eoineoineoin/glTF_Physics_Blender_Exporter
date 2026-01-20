@@ -1,6 +1,4 @@
 import bpy
-from ...io.com.gltf2_io_implicit_shapes import *
-from ...io.com.gltf2_io_rigid_bodies import *
 from typing import cast
 
 
@@ -22,8 +20,6 @@ class ParentFixup:
 
 
 class glTF2ImportUserExtension:
-    isExt: Optional[ImplicitShapesGlTFExtension] = None
-    rbExt: Optional[RigidBodiesGlTFExtension] = None
     # Additional mapping to hook up joints
     vnode_to_blender: dict = {}
     joints_to_fixup: list[JointFixup] = []
@@ -38,6 +34,12 @@ class glTF2ImportUserExtension:
         self.Extension = Extension
         self.ChildOfRootExtension = ChildOfRootExtension
 
+        from ...io.com import gltf2_io_implicit_shapes
+        from ...io.com import gltf2_io_rigid_bodies
+
+        self.ExtShapes = gltf2_io_implicit_shapes
+        self.ExtRBs = gltf2_io_rigid_bodies
+
         self.properties = bpy.context.scene.khr_physics_exporter_props
 
     def gather_import_gltf_before_hook(self, gltf):
@@ -51,12 +53,12 @@ class glTF2ImportUserExtension:
         self.joints_to_fixup = []
         self.parents_to_fixup = []
 
-        isExt = gltf.data.extensions.get(implicitShapes_Extension_Name)
+        isExt = gltf.data.extensions.get(self.ExtShapes.implicitShapes_Extension_Name)
         if isExt != None:
-            self.isExt = ImplicitShapesGlTFExtension.from_dict(isExt)
-        rbExt = gltf.data.extensions.get(rigidBody_Extension_Name)
+            self.isExt = self.ExtShapes.ImplicitShapesGlTFExtension.from_dict(isExt)
+        rbExt = gltf.data.extensions.get(self.ExtRBs.rigidBody_Extension_Name)
         if rbExt != None:
-            self.rbExt = RigidBodiesGlTFExtension.from_dict(rbExt)
+            self.rbExt = self.ExtRBs.RigidBodiesGlTFExtension.from_dict(rbExt)
             try:
                 # We need to ensure the scene has a physics world;
                 # This is created automatically when we create a rigid body
@@ -119,11 +121,11 @@ class glTF2ImportUserExtension:
         self.vnode_to_blender[vnode] = blender_object
 
         try:
-            ext = gltf_node.extensions[rigidBody_Extension_Name]
+            ext = gltf_node.extensions[self.ExtRBs.rigidBody_Extension_Name]
         except:
             return
 
-        nodeExt = RigidBodiesNodeExtension.from_dict(ext)
+        nodeExt = self.ExtRBs.RigidBodiesNodeExtension.from_dict(ext)
 
         if (
             nodeExt.collider != None
@@ -352,7 +354,7 @@ class glTF2ImportUserExtension:
     @staticmethod
     def _populateDrive(
         joint_extra,
-        drive: Optional[JointDrive],
+        drive,  #: Optional[JointDrive],
         linear: bool,
         acceleration: bool,
         axisname: str,

@@ -40,7 +40,7 @@ def calculate_cone_capsule_params(node, meshData) -> Tuple[float, float, float]:
         (0, 0, 1)
     )  # Use blender's up axis, instead of glTF (and transform later)
     maxHalfHeight = 0
-    maxRadius= 0
+    maxRadius = 0
     for v in meshData.vertices:
         maxHalfHeight = max(maxHalfHeight, abs(v.co.dot(primaryAxis)))
         coPerp = v.co - primaryAxis * v.co.dot(primaryAxis)

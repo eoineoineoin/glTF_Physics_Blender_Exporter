@@ -382,45 +382,59 @@ class KHR_rigid_body_viewport_render:
             self.shader.uniform_float("color", (1, 0, 1, 1))
             batch.draw(self.shader)
 
+
 class _modalDrawOperator(bpy.types.Operator):
     def modal(self, context, event):
         context.area.tag_redraw()
 
-        if event.type == 'LEFTMOUSE':
-            bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
-            return {'FINISHED'}
-        elif event.type in {'RIGHTMOUSE', 'ESC'}:
-            bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
-            return {'CANCELLED'}
+        if event.type == "LEFTMOUSE":
+            bpy.types.SpaceView3D.draw_handler_remove(self._handle, "WINDOW")
+            return {"FINISHED"}
+        elif event.type in {"RIGHTMOUSE", "ESC"}:
+            bpy.types.SpaceView3D.draw_handler_remove(self._handle, "WINDOW")
+            return {"CANCELLED"}
 
-        return {'RUNNING_MODAL'}
+        return {"RUNNING_MODAL"}
 
     def invoke(self, context, event):
-        if context.area.type == 'VIEW_3D':
+        if context.area.type == "VIEW_3D":
             handlerFunc = self.getRenderHandler()
-            self._handle = bpy.types.SpaceView3D.draw_handler_add(handlerFunc, (), 'WINDOW', 'POST_VIEW')
+            self._handle = bpy.types.SpaceView3D.draw_handler_add(
+                handlerFunc, (), "WINDOW", "POST_VIEW"
+            )
 
             context.window_manager.modal_handler_add(self)
-            return {'RUNNING_MODAL'}
+            return {"RUNNING_MODAL"}
         else:
-            self.report({'WARNING'}, "View3D not found, cannot run operator")
-            return {'CANCELLED'}
+            self.report({"WARNING"}, "View3D not found, cannot run operator")
+            return {"CANCELLED"}
+
 
 class KHR_OT_DrawVelocityOperator(_modalDrawOperator):
     """Draws velocity info in viewport"""
+
     bl_idname = "view3d.khr_draw_velocity"
     bl_label = "Display Rigid Body Physics Velocity"
+
     def getRenderHandler(self):
-        self._handler = KHR_rigid_body_viewport_render(draw_velocity=True, draw_mass_props=False)
+        self._handler = KHR_rigid_body_viewport_render(
+            draw_velocity=True, draw_mass_props=False
+        )
         return self._handler.drawExtraPhysicsProperties
+
 
 class KHR_OT_DrawMassPropsOperator(_modalDrawOperator):
     """Draws mass properties in viewport"""
+
     bl_idname = "view3d.khr_draw_mass_props"
     bl_label = "Display Rigid Body Physics Mass Properties"
+
     def getRenderHandler(self):
-        self._handler = KHR_rigid_body_viewport_render(draw_velocity=False, draw_mass_props=True)
+        self._handler = KHR_rigid_body_viewport_render(
+            draw_velocity=False, draw_mass_props=True
+        )
         return self._handler.drawExtraPhysicsProperties
+
 
 class KHR_PT_rigid_body_visualizer(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
@@ -441,6 +455,7 @@ class KHR_PT_rigid_body_visualizer(bpy.types.Panel):
         row.operator(KHR_DrawVelocityOperator.bl_idname)
         row = layout.row()
         row.operator(KHR_DrawMassPropsOperator.bl_idname)
+
 
 class KHR_PT_rigid_body_panel_base(bpy.types.Panel):
     bl_label = "KHR Physics Extensions"
@@ -790,10 +805,9 @@ def register_ui():
         type=KHR_rigid_body_constraint_node_properties
     )
 
+
 def unregister_ui():
     for panel in registered_classes:
         bpy.utils.unregister_class(panel)
     del bpy.types.Scene.khr_physics_exporter_props
     del bpy.types.Object.khr_physics_extra_props
-
-

@@ -1,23 +1,13 @@
 import bpy
 from ...blender.com.gltf2_blender_rigid_bodies_util import *
-from ...io.com.gltf2_io_implicit_shapes import *
-from ...io.com.gltf2_io_rigid_bodies import *
-from io_scene_gltf2.io.com import gltf2_io
-from mathutils import Matrix, Euler
+from mathutils import Matrix, Euler, Quaternion
+from typing import Union, Optional
 
 # Constant used to construct some quaternions when switching up axis
 halfSqrt2 = 2**0.5 * 0.5
 
-# These need to be imported without underscores to avoid name mangling issues:
-from io_scene_gltf2.blender.exp.nodes import __convert_swizzle_scale as convert_swizzle_scale
-from io_scene_gltf2.blender.exp.nodes import __convert_swizzle_rotation as convert_swizzle_rotation
-from io_scene_gltf2.blender.exp.nodes import __convert_swizzle_location as convert_swizzle_location
-
 
 class glTF2ExportUserExtension:
-    isExt: ImplicitShapesGlTFExtension
-    rbExt: RigidBodiesGlTFExtension
-
     def __init__(self):
         # We need to wait until we create the gltf2UserExtension to import the gltf2 modules
         # Otherwise, it may fail because the gltf2 may not be loaded yet
@@ -26,15 +16,40 @@ class glTF2ExportUserExtension:
 
         self.Extension = Extension
         self.ChildOfRootExtension = ChildOfRootExtension
+
+        from ...io.com import gltf2_io_implicit_shapes
+        from ...io.com import gltf2_io_rigid_bodies
+
+        self.ExtShapes = gltf2_io_implicit_shapes
+        self.ExtRBs = gltf2_io_rigid_bodies
+
         self.properties = bpy.context.scene.khr_physics_exporter_props
-        self.rbExt = RigidBodiesGlTFExtension()
-        self.isExt = ImplicitShapesGlTFExtension()
+        self.rbExt = self.ExtRBs.RigidBodiesGlTFExtension()
+        self.isExt = self.ExtShapes.ImplicitShapesGlTFExtension()
 
         # Supporting data allowing us to save joints correctly
         self.blenderJointObjects = []
         self.blenderNodeToGltfNode = {}
         self.blenderBoneToGltfNode = {}
         self.gltfNodeToBlender = {}
+
+    def _convert_swizzle_location(self, loc, export_settings):
+        if export_settings["gltf_yup"]:
+            return Vector((loc[0], loc[2], -loc[1]))
+        else:
+            return Vector((loc[0], loc[1], loc[2]))
+
+    def _convert_swizzle_rotation(self, rot, export_settings):
+        if export_settings["gltf_yup"]:
+            return Quaternion((rot[0], rot[1], rot[3], -rot[2]))
+        else:
+            return Quaternion((rot[0], rot[1], rot[2], rot[3]))
+
+    def _convert_swizzle_scale(self, scale, export_settings):
+        if export_settings["gltf_yup"]:
+            return Vector((scale[0], scale[2], scale[1]))
+        else:
+            return Vector((scale[0], scale[1], scale[2]))
 
     def gather_gltf_extensions_hook(self, gltf2_plan, export_settings):
         if not self.properties.enabled:
@@ -45,26 +60,28 @@ class glTF2ExportUserExtension:
 
         if self.rbExt.should_export():
             physicsRootExtension = self.Extension(
-                name=rigidBody_Extension_Name,
+                name=self.ExtRBs.rigidBody_Extension_Name,
                 extension=self.rbExt.to_dict(),
                 required=False,
             )
-            gltf2_plan.extensions[rigidBody_Extension_Name] = physicsRootExtension
+            gltf2_plan.extensions[self.ExtRBs.rigidBody_Extension_Name] = (
+                physicsRootExtension
+            )
 
         if (
-            not implicitShapes_Extension_Name in gltf2_plan.extensions
+            not self.ExtShapes.implicitShapes_Extension_Name in gltf2_plan.extensions
             and self.isExt.should_export()
         ):
             isRootExtension = self.Extension(
-                name=implicitShapes_Extension_Name,
+                name=self.ExtShapes.implicitShapes_Extension_Name,
                 extension=self.isExt.to_dict(),
                 required=False,
             )
-            gltf2_plan.extensions[implicitShapes_Extension_Name] = isRootExtension
+            gltf2_plan.extensions[self.ExtShapes.implicitShapes_Extension_Name] = (
+                isRootExtension
+            )
 
-    def gather_scene_hook(
-        self, gltf2_scene: gltf2_io.Scene, blender_scene, export_settings
-    ):
+    def gather_scene_hook(self, gltf2_scene, blender_scene, export_settings):
         try:
             self.gather_scene_hook2(gltf2_scene, blender_scene, export_settings)
         except:
@@ -72,9 +89,7 @@ class glTF2ExportUserExtension:
 
             print(traceback.format_exc())
 
-    def gather_scene_hook2(
-        self, gltf2_scene: gltf2_io.Scene, blender_scene, export_settings
-    ):
+    def gather_scene_hook2(self, gltf2_scene, blender_scene, export_settings):
         if not self.properties.enabled:
             return
 
@@ -126,8 +141,8 @@ class glTF2ExportUserExtension:
                 export_settings,
             )
             # <todo.eoin Don't stomp exising extension:
-            jointInA.extensions[rigidBody_Extension_Name] = self.Extension(
-                name=rigidBody_Extension_Name,
+            jointInA.extensions[self.ExtRBs.rigidBody_Extension_Name] = self.Extension(
+                name=self.ExtRBs.rigidBody_Extension_Name,
                 extension={"joint": jointData.to_dict()},
                 required=False,
             )
@@ -169,26 +184,24 @@ class glTF2ExportUserExtension:
 
                 a_trs = a.decompose()
                 gltf_rb.translation = [
-                    x
-                    for x in convert_swizzle_location(a_trs[0], export_settings)
+                    x for x in self._convert_swizzle_location(a_trs[0], export_settings)
                 ]
                 gltf_rb.rotation = self._serializeQuaternion(
-                    convert_swizzle_rotation(a_trs[1], export_settings)
+                    self._convert_swizzle_rotation(a_trs[1], export_settings)
                 )
                 gltf_rb.scale = [
-                    x for x in convert_swizzle_scale(a_trs[2], export_settings)
+                    x for x in self._convert_swizzle_scale(a_trs[2], export_settings)
                 ]
 
                 b_trs = b.decompose()
                 gltf_bone.translation = [
-                    x
-                    for x in convert_swizzle_location(b_trs[0], export_settings)
+                    x for x in self._convert_swizzle_location(b_trs[0], export_settings)
                 ]
                 gltf_bone.rotation = self._serializeQuaternion(
-                    convert_swizzle_rotation(b_trs[1], export_settings)
+                    self._convert_swizzle_rotation(b_trs[1], export_settings)
                 )
                 gltf_bone.scale = [
-                    x for x in convert_swizzle_scale(b_trs[2], export_settings)
+                    x for x in self._convert_swizzle_scale(b_trs[2], export_settings)
                 ]
 
                 # In gltf_bone_parent, replace gltf_bone with gltf_rb
@@ -223,9 +236,9 @@ class glTF2ExportUserExtension:
 
     def _buildParentMap(
         self,
-        nodeToParent: Dict[gltf2_io.Node, gltf2_io.Node],
-        parent: gltf2_io.Node,
-        node: gltf2_io.Node,
+        nodeToParent,
+        parent,
+        node,
     ):
         nodeToParent[node] = parent
         if node == None or node.children == None:
@@ -243,7 +256,7 @@ class glTF2ExportUserExtension:
 
     def gather_joint_hook(
         self,
-        gltf2_node: gltf2_io.Node,
+        gltf2_node,
         blender_bone: bpy.types.PoseBone,
         export_settings,
     ):
@@ -274,7 +287,7 @@ class glTF2ExportUserExtension:
                 # <todo.eoin Pretty sure this is never hit, due to export_user_extensions()
                 gltf2_object.extensions = {}
 
-            extension_data = RigidBodiesNodeExtension()
+            extension_data = self.ExtRBs.RigidBodiesNodeExtension()
             # Blender has no way to specify a shape without a rigid body. Instead, a single shape is
             # specified by being a child of a body whose collider type is "Compound Parent"
             if (
@@ -287,7 +300,7 @@ class glTF2ExportUserExtension:
                 rb = blender_object.rigid_body
                 extraProps = blender_object.khr_physics_extra_props
 
-                motion = Motion()
+                motion = self.ExtRBs.Motion()
 
                 if rb.kinematic:
                     motion.is_kinematic = rb.kinematic
@@ -299,24 +312,24 @@ class glTF2ExportUserExtension:
                 if extraProps.gravity_factor != 1.0:
                     motion.gravity_factor = extraProps.gravity_factor
 
-                lv = convert_swizzle_location(
+                lv = self._convert_swizzle_location(
                     Vector(extraProps.linear_velocity), export_settings
                 )
                 if lv.length_squared != 0:
                     motion.linear_velocity = lv
-                av = convert_swizzle_location(
+                av = self._convert_swizzle_location(
                     Vector(extraProps.angular_velocity), export_settings
                 )
                 if av.length_squared != 0:
                     motion.angular_velocity = av
 
                 if extraProps.enable_com_override:
-                    motion.center_of_mass = convert_swizzle_location(
+                    motion.center_of_mass = self._convert_swizzle_location(
                         Vector(extraProps.center_of_mass), export_settings
                     )
 
                 if extraProps.enable_inertia_override:
-                    motion.inertia_diagonal = convert_swizzle_scale(
+                    motion.inertia_diagonal = self._convert_swizzle_scale(
                         extraProps.inertia_major_axis, export_settings
                     )
                     motion.inertia_orientation = Euler(
@@ -339,11 +352,11 @@ class glTF2ExportUserExtension:
                         gltf2_object.mesh = None
 
                     if extraProps.is_trigger:
-                        extension_data.trigger = Trigger()
+                        extension_data.trigger = self.ExtRBs.Trigger()
                         extension_data.trigger.geometry = geom_data
                         extension_data.trigger.collision_filter = filter_obj
                     else:
-                        extension_data.collider = Collider()
+                        extension_data.collider = self.ExtRBs.Collider()
                         extension_data.collider.geometry = geom_data
                         extension_data.collider.collision_filter = filter_obj
                         extension_data.collider.physics_material = (
@@ -359,10 +372,12 @@ class glTF2ExportUserExtension:
                 blender_object.rigid_body != None
                 or blender_object.rigid_body_constraint != None
             ):
-                gltf2_object.extensions[rigidBody_Extension_Name] = self.Extension(
-                    name=rigidBody_Extension_Name,
-                    extension=extension_data.to_dict(),
-                    required=False,
+                gltf2_object.extensions[self.ExtRBs.rigidBody_Extension_Name] = (
+                    self.Extension(
+                        name=self.ExtRBs.rigidBody_Extension_Name,
+                        extension=extension_data.to_dict(),
+                        required=False,
+                    )
                 )
 
     def _getParentCompoundBody(self, node: bpy.types.Node) -> Optional[bpy.types.Node]:
@@ -375,19 +390,25 @@ class glTF2ExportUserExtension:
         return None
 
     def _generateMaterialRootObject(self, blender_object):
-        mat = Material()
+        mat = self.ExtRBs.Material()
         mat.static_friction = blender_object.rigid_body.friction
         mat.dynamic_friction = blender_object.rigid_body.friction
         mat.restitution = blender_object.rigid_body.restitution
 
         extraProps = blender_object.khr_physics_extra_props
-        if extraProps.friction_combine != physics_material_combine_types[0][0]:
+        if (
+            extraProps.friction_combine
+            != self.ExtRBs.physics_material_combine_types[0][0]
+        ):
             mat.friction_combine = extraProps.friction_combine
-        if extraProps.restitution_combine != physics_material_combine_types[0][0]:
+        if (
+            extraProps.restitution_combine
+            != self.ExtRBs.physics_material_combine_types[0][0]
+        ):
             mat.restitution_combine = extraProps.restitution_combine
 
         return self.ChildOfRootExtension(
-            name=rigidBody_Extension_Name,
+            name=self.ExtRBs.rigidBody_Extension_Name,
             path=["physicsMaterials"],
             extension=mat.to_dict(),
             required=False,
@@ -397,7 +418,7 @@ class glTF2ExportUserExtension:
         """Converts the concrete joint data on `node` to a generic 6DOF representation"""
         joint = node.rigid_body_constraint
         joint_extra = node.khr_physics_extra_constraint_props
-        jointData = Joint()
+        jointData = self.ExtRBs.Joint()
         if not joint.disable_collisions:
             jointData.enable_collision = not joint.disable_collisions
 
@@ -406,53 +427,53 @@ class glTF2ExportUserExtension:
         else:
             X, Y, Z = (0, 1, 2)
 
-        jointDesc = JointDescription()
+        jointDesc = self.ExtRBs.JointDescription()
         if joint.type == "FIXED":
-            jointDesc.limits.append(JointLimit.Linear([X, Y, Z], 0, 0))
-            jointDesc.limits.append(JointLimit.Angular([X, Y, Z], 0, 0))
+            jointDesc.limits.append(self.ExtRBs.JointLimit.Linear([X, Y, Z], 0, 0))
+            jointDesc.limits.append(self.ExtRBs.JointLimit.Angular([X, Y, Z], 0, 0))
         elif joint.type == "POINT":
-            jointDesc.limits.append(JointLimit.Linear([X, Y, Z], 0, 0))
+            jointDesc.limits.append(self.ExtRBs.JointLimit.Linear([X, Y, Z], 0, 0))
         elif joint.type == "HINGE":
-            jointDesc.limits.append(JointLimit.Linear([X, Y, Z], 0, 0))
+            jointDesc.limits.append(self.ExtRBs.JointLimit.Linear([X, Y, Z], 0, 0))
 
             # Blender always specifies hinge about Z
-            jointDesc.limits.append(JointLimit.Angular([X, Y], 0, 0))
+            jointDesc.limits.append(self.ExtRBs.JointLimit.Angular([X, Y], 0, 0))
 
             if joint.use_limit_ang_z:
-                angLimit = JointLimit.Angular([Z])
+                angLimit = self.ExtRBs.JointLimit.Angular([Z])
                 angLimit.min_limit = joint.limit_ang_z_lower
                 angLimit.max_limit = joint.limit_ang_z_upper
                 jointDesc.limits.append(angLimit)
         elif joint.type == "SLIDER":
-            jointDesc.limits.append(JointLimit.Angular([X, Y, Z], 0, 0))
+            jointDesc.limits.append(self.ExtRBs.JointLimit.Angular([X, Y, Z], 0, 0))
 
             # Blender always specifies slider limit along X
-            jointDesc.limits.append(JointLimit.Linear([Y, Z], 0, 0))
+            jointDesc.limits.append(self.ExtRBs.JointLimit.Linear([Y, Z], 0, 0))
 
             if joint.use_limit_lin_x:
-                linLimit = JointLimit.Linear([X])
+                linLimit = self.ExtRBs.JointLimit.Linear([X])
                 linLimit.min_limit = joint.limit_lin_x_lower
                 linLimit.max_limit = joint.limit_lin_x_upper
                 jointDesc.limits.append(linLimit)
         elif joint.type == "PISTON":
             # Blender always specifies slider limit along/around X
-            jointDesc.limits.append(JointLimit.Angular([Y, Z], 0, 0))
-            jointDesc.limits.append(JointLimit.Linear([Y, Z], 0, 0))
+            jointDesc.limits.append(self.ExtRBs.JointLimit.Angular([Y, Z], 0, 0))
+            jointDesc.limits.append(self.ExtRBs.JointLimit.Linear([Y, Z], 0, 0))
 
             if joint.use_limit_lin_x:
-                linLimit = JointLimit.Linear([X])
+                linLimit = self.ExtRBs.JointLimit.Linear([X])
                 linLimit.min_limit = joint.limit_lin_x_lower
                 linLimit.max_limit = joint.limit_lin_x_upper
                 jointDesc.limits.append(linLimit)
             if joint.use_limit_ang_x:
-                angLimit = JointLimit.Angular([X])
+                angLimit = self.ExtRBs.JointLimit.Angular([X])
                 angLimit.min_limit = joint.limit_ang_x_lower
                 angLimit.max_limit = joint.limit_ang_x_upper
                 jointDesc.limits.append(angLimit)
         elif joint.type in ("GENERIC", "GENERIC_SPRING"):
             # Blender always uses 1D constraints
             if joint.use_limit_lin_x:
-                linLimit = JointLimit.Linear([X])
+                linLimit = self.ExtRBs.JointLimit.Linear([X])
                 if joint.use_limit_lin_x:
                     linLimit.min_limit = joint.limit_lin_x_lower
                     linLimit.max_limit = joint.limit_lin_x_upper
@@ -461,7 +482,7 @@ class glTF2ExportUserExtension:
                         linLimit.spring_damping = joint.spring_damping_x
                 jointDesc.limits.append(linLimit)
             if joint.use_limit_lin_y:
-                linLimit = JointLimit.Linear([Y])
+                linLimit = self.ExtRBs.JointLimit.Linear([Y])
                 if joint.use_limit_lin_y:
                     if export_settings["gltf_yup"]:
                         linLimit.min_limit = -joint.limit_lin_y_upper
@@ -474,7 +495,7 @@ class glTF2ExportUserExtension:
                         linLimit.spring_damping = joint.spring_damping_y
                 jointDesc.limits.append(linLimit)
             if joint.use_limit_lin_z:
-                linLimit = JointLimit.Linear([Z])
+                linLimit = self.ExtRBs.JointLimit.Linear([Z])
                 if joint.use_limit_lin_z:
                     linLimit.min_limit = joint.limit_lin_z_lower
                     linLimit.max_limit = joint.limit_lin_z_upper
@@ -483,7 +504,7 @@ class glTF2ExportUserExtension:
                         linLimit.spring_damping = joint.spring_damping_z
                 jointDesc.limits.append(linLimit)
             if joint.use_limit_ang_x:
-                angLimit = JointLimit.Angular([X])
+                angLimit = self.ExtRBs.JointLimit.Angular([X])
                 if joint.use_limit_ang_x:
                     angLimit.min_limit = joint.limit_ang_x_lower
                     angLimit.max_limit = joint.limit_ang_x_upper
@@ -492,7 +513,7 @@ class glTF2ExportUserExtension:
                         angLimit.spring_damping = joint.spring_damping_ang_x
                 jointDesc.limits.append(angLimit)
             if joint.use_limit_ang_y:
-                angLimit = JointLimit.Angular([Y])
+                angLimit = self.ExtRBs.JointLimit.Angular([Y])
                 if joint.use_limit_ang_y:
                     if export_settings["gltf_yup"]:
                         angLimit.min_limit = -joint.limit_ang_y_upper
@@ -505,7 +526,7 @@ class glTF2ExportUserExtension:
                         angLimit.spring_damping = joint.spring_damping_ang_y
                 jointDesc.limits.append(angLimit)
             if joint.use_limit_ang_z:
-                angLimit = JointLimit.Angular([Z])
+                angLimit = self.ExtRBs.JointLimit.Angular([Z])
                 if joint.use_limit_ang_z:
                     angLimit.min_limit = joint.limit_ang_z_lower
                     angLimit.max_limit = joint.limit_ang_z_upper
@@ -517,15 +538,16 @@ class glTF2ExportUserExtension:
             jointDesc.drives = self._makeDrives(joint_extra, export_settings)
 
         jointData.joint = self.ChildOfRootExtension(
-            name=rigidBody_Extension_Name,
+            name=self.ExtRBs.rigidBody_Extension_Name,
             path=["physicsJoints"],
             extension=jointDesc.to_dict(),
             required=False,
         )
         return jointData
 
-    @staticmethod
-    def _makeDrives(joint_extra, export_settings) -> Optional[list[JointDrive]]:
+    def _makeDrives(
+        self, joint_extra, export_settings
+    ):  # -> Optional[list[JointDrive]]:
         drives = []
         axisIndices = (0, 2, 1) if export_settings["gltf_yup"] else (0, 1, 2)
         targetScales = (1, -1, 1) if export_settings["gltf_yup"] else (1, 1, 1)
@@ -540,7 +562,7 @@ class glTF2ExportUserExtension:
                 )
                 isAcceleration = drive_mode == "acceleration"
 
-                drive = JointDrive(
+                drive = self.ExtRBs.JointDrive(
                     axIdx, isLinear=(typeprefix == "lin"), isAcceleration=isAcceleration
                 )
                 drive.position_target = scale * getattr(
@@ -577,11 +599,11 @@ class glTF2ExportUserExtension:
             for (i, enabled) in enumerate(node.rigid_body.collision_collections)
             if enabled
         ]
-        collision_filter = CollisionFilter()
+        collision_filter = self.ExtRBs.CollisionFilter()
         collision_filter.collision_systems = collision_systems
         collision_filter.collide_with_systems = collision_systems
         return self.ChildOfRootExtension(
-            name=rigidBody_Extension_Name,
+            name=self.ExtRBs.rigidBody_Extension_Name,
             path=["collisionFilters"],
             required=False,
             extension=collision_filter.to_dict(),
@@ -589,10 +611,10 @@ class glTF2ExportUserExtension:
 
     def _generateGeometryData(
         self, node, glNode, export_settings
-    ) -> Optional[Geometry]:
+    ):  # -> Optional[self.ExtRBs.Geometry]:
         if node.rigid_body == None or node.rigid_body.collision_shape == "COMPOUND":
             return None
-        geom = Geometry()
+        geom = self.ExtRBs.Geometry()
 
         if node.rigid_body.collision_shape in ("CONVEX_HULL", "MESH"):
             shape_node = self._constructNode(
@@ -607,7 +629,7 @@ class glTF2ExportUserExtension:
             geom.node = shape_node
             return geom
 
-        shape = Shape()
+        shape = self.ExtShapes.Shape()
         # If the shape is a geometric primitive, we may have to apply modifiers
         # to see the final geometry. (glNode has already had modifiers applied)
         with accessMeshData(node, export_settings["gltf_apply"]) as meshData:
@@ -616,7 +638,7 @@ class glTF2ExportUserExtension:
                 for v in meshData.vertices:
                     maxRR = max(maxRR, v.co.length_squared)
                 shape.type = "sphere"
-                shape.sphere = Sphere(radius=maxRR**0.5)
+                shape.sphere = self.ExtShapes.Sphere(radius=maxRR**0.5)
             elif node.rigid_body.collision_shape == "BOX":
                 maxHalfExtent = [0, 0, 0]
                 for v in meshData.vertices:
@@ -624,9 +646,8 @@ class glTF2ExportUserExtension:
                         max(a, abs(b)) for a, b in zip(maxHalfExtent, v.co)
                     ]
                 shape.type = "box"
-                shape.box = Box(
-                    size= convert_swizzle_scale(maxHalfExtent, export_settings)
-                    * 2
+                shape.box = self.ExtShapes.Box(
+                    size=self._convert_swizzle_scale(maxHalfExtent, export_settings) * 2
                 )
             elif node.rigid_body.collision_shape in ("CAPSULE", "CONE", "CYLINDER"):
                 if not node.khr_physics_extra_props.cone_capsule_override:
@@ -642,14 +663,14 @@ class glTF2ExportUserExtension:
 
                 if node.rigid_body.collision_shape == "CAPSULE":
                     shape.type = "capsule"
-                    shape.capsule = Capsule(
+                    shape.capsule = self.ExtShapes.Capsule(
                         height=height,
                         radiusTop=radiusTop,
                         radiusBottom=radiusBottom,
                     )
                 else:
                     shape.type = "cylinder"
-                    shape.cylinder = Cylinder(
+                    shape.cylinder = self.ExtShapes.Cylinder(
                         height=height,
                         radiusTop=radiusTop,
                         radiusBottom=radiusBottom,
@@ -664,21 +685,21 @@ class glTF2ExportUserExtension:
                         export_settings,
                     )
 
-                    node_ext = RigidBodiesNodeExtension()
+                    node_ext = self.ExtRBs.RigidBodiesNodeExtension()
                     geom.shape = self.ChildOfRootExtension(
-                        name=implicitShapes_Extension_Name,
+                        name=self.ExtShapes.implicitShapes_Extension_Name,
                         path=["shapes"],
                         required=False,
                         extension=shape.to_dict(),
                     )
                     if node.khr_physics_extra_props.is_trigger:
-                        node_ext.trigger = Trigger()
+                        node_ext.trigger = self.ExtRBs.Trigger()
                         node_ext.trigger.collision_filter = (
                             self._generateFilterRootObject(node)
                         )
                         node_ext.trigger.geometry = geom
                     else:
-                        node_ext.collider = Collider()
+                        node_ext.collider = self.ExtRBs.Collider()
                         node_ext.collider.physics_material = (
                             self._generateMaterialRootObject(node)
                         )
@@ -687,9 +708,9 @@ class glTF2ExportUserExtension:
                         )
                         node_ext.collider.geometry = geom
 
-                    shape_alignment.extensions[rigidBody_Extension_Name] = (
+                    shape_alignment.extensions[self.ExtRBs.rigidBody_Extension_Name] = (
                         self.Extension(
-                            name=rigidBody_Extension_Name,
+                            name=self.ExtRBs.rigidBody_Extension_Name,
                             extension=node_ext.to_dict(),
                             required=False,
                         )
@@ -700,7 +721,7 @@ class glTF2ExportUserExtension:
                     # return None so that the glNode doesn't get shape data,
                     return None
         geom.shape = self.ChildOfRootExtension(
-            name=implicitShapes_Extension_Name,
+            name=self.ExtShapes.implicitShapes_Extension_Name,
             path=["shapes"],
             required=False,
             extension=shape.to_dict(),
@@ -708,13 +729,15 @@ class glTF2ExportUserExtension:
         return geom
 
     def _constructNode(self, name, translation, rotation, export_settings):
+        from io_scene_gltf2.io.com import gltf2_io
+
         return gltf2_io.Node(
             name=name,
             translation=[
-                x for x in convert_swizzle_location(translation, export_settings)
+                x for x in self._convert_swizzle_location(translation, export_settings)
             ],
             rotation=self._serializeQuaternion(
-                convert_swizzle_rotation(rotation, export_settings)
+                self._convert_swizzle_rotation(rotation, export_settings)
             ),
             matrix=[],
             camera=None,

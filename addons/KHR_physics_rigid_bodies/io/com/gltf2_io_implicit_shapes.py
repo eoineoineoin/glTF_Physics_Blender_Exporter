@@ -1,4 +1,7 @@
 from . import from_vec
+
+# These are safe to import here, as this file is only imported from
+# code that is run by io_scene_gltf2, so it must be loaded already
 from io_scene_gltf2.io.com.gltf2_io import from_union, from_none, from_float
 from io_scene_gltf2.io.com.gltf2_io import from_str, from_list, from_dict
 from io_scene_gltf2.io.com.gltf2_io import to_class, from_extension, from_extra
