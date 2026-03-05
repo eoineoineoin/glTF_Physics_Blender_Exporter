@@ -452,9 +452,9 @@ class KHR_PT_rigid_body_visualizer(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         row = layout.row()
-        row.operator(KHR_DrawVelocityOperator.bl_idname)
+        row.operator(KHR_OT_DrawVelocityOperator.bl_idname)
         row = layout.row()
-        row.operator(KHR_DrawMassPropsOperator.bl_idname)
+        row.operator(KHR_OT_DrawMassPropsOperator.bl_idname)
 
 
 class KHR_PT_rigid_body_panel_base(bpy.types.Panel):
